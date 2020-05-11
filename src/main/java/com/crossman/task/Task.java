@@ -7,6 +7,10 @@ import java.util.Optional;
  * and being incomplete. Subtypes expand on these basic concepts.
  */
 public interface Task {
+	public static final Task success = SuccessfulTask.instance;
+	public static final Task failure = FailedTask.instance;
+	public static final Task incomplete = IncompleteTask.instance;
+
 	public boolean isCompleted();
 
 	public default boolean isNotCompleted() {
