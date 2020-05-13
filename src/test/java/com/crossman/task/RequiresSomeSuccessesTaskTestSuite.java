@@ -14,35 +14,35 @@ public class RequiresSomeSuccessesTaskTestSuite {
 
 	@Test
 	public void testConstructor() {
-		Task task = RequiresSomeSuccesses.of(1, Task.success, Task.failure);
+		Task task = GradedTask.requiresSomeSuccesses(1, Task.success, Task.failure);
 		assertNotNull(task);
 	}
 
 	@Test
 	public void testSucceedsIfAtLeastNSucceed() {
-		Task task = RequiresSomeSuccesses.of(2, Task.success, Task.success);
+		Task task = GradedTask.requiresSomeSuccesses(2, Task.success, Task.success);
 		assertTrue(task.isCompleted());
 		assertEquals(Optional.of(true), task.isSuccess());
 	}
 
 	@Test
 	public void testFailsIfAtLeastNDontSucceed() {
-		Task task = RequiresSomeSuccesses.of(3, Task.success, Task.success);
+		Task task = GradedTask.requiresSomeSuccesses(3, Task.success, Task.success);
 		assertTrue(task.isCompleted());
 		assertEquals(Optional.of(false), task.isSuccess());
 	}
 
 	@Test
 	public void testCompletesIfAllCompleted() {
-		Task task = RequiresSomeSuccesses.of(1, Task.success, Task.failure, Task.incomplete);
+		Task task = GradedTask.requiresSomeSuccesses(1, Task.success, Task.failure, Task.incomplete);
 		assertFalse(task.isCompleted());
 		assertEquals(Optional.empty(), task.isSuccess());
 	}
 
 	@Test
 	public void testEmptyConstructor() {
-		Task task = RequiresSomeSuccesses.of(0);
-		assertFalse(task.isCompleted());
-		assertEquals(Optional.empty(), task.isSuccess());
+		Task task = GradedTask.requiresSomeSuccesses(0);
+		assertTrue(task.isCompleted());
+		assertEquals(Optional.of(true), task.isSuccess());
 	}
 }

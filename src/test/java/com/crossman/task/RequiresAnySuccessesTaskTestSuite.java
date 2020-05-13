@@ -14,42 +14,42 @@ public class RequiresAnySuccessesTaskTestSuite {
 
 	@Test
 	public void testConstructor() {
-		Task task = RequiresAnySuccesses.of(Task.success, Task.failure);
+		Task task = GradedTask.requiresAnySuccesses(Task.success, Task.failure);
 		assertNotNull(task);
 	}
 
 	@Test
 	public void testSucceedsIfAllSucceed() {
-		Task task = RequiresAnySuccesses.of(Task.success, Task.success);
+		Task task = GradedTask.requiresAnySuccesses(Task.success, Task.success);
 		assertTrue(task.isCompleted());
 		assertEquals(Optional.of(true), task.isSuccess());
 	}
 
 	@Test
 	public void testSucceedsIfOneSucceed() {
-		Task task = RequiresAnySuccesses.of(Task.success, Task.failure);
+		Task task = GradedTask.requiresAnySuccesses(Task.success, Task.failure);
 		assertTrue(task.isCompleted());
 		assertEquals(Optional.of(true), task.isSuccess());
 	}
 
 	@Test
 	public void testFailsIfAllFailed() {
-		Task task = RequiresAnySuccesses.of(Task.failure, Task.failure);
+		Task task = GradedTask.requiresAnySuccesses(Task.failure, Task.failure);
 		assertTrue(task.isCompleted());
 		assertEquals(Optional.of(false), task.isSuccess());
 	}
 
 	@Test
 	public void testCompletesIfAllCompleted() {
-		Task task = RequiresAnySuccesses.of(Task.success, Task.failure, Task.incomplete);
+		Task task = GradedTask.requiresAnySuccesses(Task.success, Task.failure, Task.incomplete);
 		assertFalse(task.isCompleted());
 		assertEquals(Optional.empty(), task.isSuccess());
 	}
 
 	@Test
 	public void testEmptyConstructor() {
-		Task task = RequiresAnySuccesses.of();
-		assertFalse(task.isCompleted());
-		assertEquals(Optional.empty(), task.isSuccess());
+		Task task = GradedTask.requiresAnySuccesses();
+		assertTrue(task.isCompleted());
+		assertEquals(Optional.of(false), task.isSuccess());
 	}
 }

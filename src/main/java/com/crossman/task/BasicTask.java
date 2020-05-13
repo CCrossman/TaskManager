@@ -4,17 +4,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class BasicTask implements Task {
-	private boolean completed;
 	private Boolean succeeded;
 
 	public BasicTask() {
-		completed = false;
 		succeeded = null;
-	}
-
-	@Override
-	public boolean isCompleted() {
-		return completed;
 	}
 
 	@Override
@@ -23,12 +16,10 @@ public final class BasicTask implements Task {
 	}
 
 	public void completeSuccessfully() {
-		completed = true;
 		succeeded = true;
 	}
 
 	public void completeUnsuccessfully() {
-		completed = true;
 		succeeded = false;
 	}
 
@@ -37,20 +28,18 @@ public final class BasicTask implements Task {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		BasicTask basicTask = (BasicTask) o;
-		return isCompleted() == basicTask.isCompleted() &&
-				Objects.equals(succeeded, basicTask.succeeded);
+		return Objects.equals(succeeded, basicTask.succeeded);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(isCompleted(), succeeded);
+		return Objects.hash(succeeded);
 	}
 
 	@Override
 	public String toString() {
 		return "BasicTask{" +
-				"completed=" + completed +
-				", succeeded=" + succeeded +
+				"succeeded=" + succeeded +
 				'}';
 	}
 }

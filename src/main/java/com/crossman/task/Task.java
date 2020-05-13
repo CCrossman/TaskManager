@@ -11,7 +11,9 @@ public interface Task {
 	public static final Task failure = FailedTask.instance;
 	public static final Task incomplete = IncompleteTask.instance;
 
-	public boolean isCompleted();
+	public default boolean isCompleted() {
+		return isSuccess().isPresent();
+	}
 
 	public default boolean isNotCompleted() {
 		return !isCompleted();
