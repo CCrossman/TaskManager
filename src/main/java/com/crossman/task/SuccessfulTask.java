@@ -3,7 +3,7 @@ package com.crossman.task;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-public enum SuccessfulTask implements Task<Void,Exception> {
+public enum SuccessfulTask implements Task<Void> {
 	instance;
 
 	@Override

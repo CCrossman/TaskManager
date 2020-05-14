@@ -3,12 +3,11 @@ package com.crossman.task;
 import java.util.*;
 import java.util.function.BiConsumer;
 
-public final class BasicTask<T,E extends Exception> implements Task<T,E> {
-	private final Collection<Listener<T,E>> listeners = new ArrayList<>();
-	private final Deque<BiConsumer<T,E>> pendingConsumers = new ArrayDeque<>();
+public final class BasicTask<T> implements Task<T> {
+	private final Deque<BiConsumer<T,Exception>> pendingConsumers = new ArrayDeque<>();
 
 	private T value;
-	private E exception;
+	private Exception exception;
 
 	public BasicTask() {
 		value = null;
@@ -16,12 +15,7 @@ public final class BasicTask<T,E extends Exception> implements Task<T,E> {
 	}
 
 	@Override
-	public void addListener(Listener<T, E> listener) {
-		listeners.add(listener);
-	}
-
-	@Override
-	public void forEach(BiConsumer<T, E> blk) {
+	public void forEach(BiConsumer<T, Exception> blk) {
 		if (isCompleted()) {
 			blk.accept(value,exception);
 		} else {
@@ -41,23 +35,15 @@ public final class BasicTask<T,E extends Exception> implements Task<T,E> {
 		if (this.value == null && exception == null) {
 			this.value = value;
 
-			for (Listener<T,E> listener : listeners) {
-				listener.onComplete(value,exception);
-			}
-
 			while (!pendingConsumers.isEmpty()) {
 				pendingConsumers.poll().accept(value,exception);
 			}
 		}
 	}
 
-	public void completeUnsuccessfully(E exception) {
+	public void completeUnsuccessfully(Exception exception) {
 		if (value == null && this.exception == null) {
 			this.exception = exception;
-
-			for (Listener<T,E> listener : listeners) {
-				listener.onComplete(value,exception);
-			}
 
 			while (!pendingConsumers.isEmpty()) {
 				pendingConsumers.poll().accept(value,exception);

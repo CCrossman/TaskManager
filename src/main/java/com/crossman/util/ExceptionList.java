@@ -19,6 +19,14 @@ public final class ExceptionList extends Exception {
 		return exceptionList.equals(that.exceptionList);
 	}
 
+	public int size() {
+		return exceptionList.size();
+	}
+
+	public Exception get(int index) {
+		return exceptionList.get(index);
+	}
+
 	@Override
 	public int hashCode() {
 		return Objects.hash(exceptionList);
