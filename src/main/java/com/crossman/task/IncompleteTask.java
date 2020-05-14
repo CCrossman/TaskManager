@@ -1,9 +1,15 @@
 package com.crossman.task;
 
 import java.util.Optional;
+import java.util.function.BiConsumer;
 
-public enum IncompleteTask implements Task {
+public enum IncompleteTask implements Task<Void> {
 	instance;
+
+	@Override
+	public void forEach(BiConsumer<Void, Exception> blk) {
+		// never completes
+	}
 
 	@Override
 	public boolean isCompleted() {

@@ -1,27 +1,87 @@
 package com.crossman.task;
 
+import com.crossman.util.ExceptionList;
 import com.crossman.util.Grade;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
- * A GradedTask aggregates the success, failure, and completeness
- * of sub-tasks before feeding them to a function that produces
- * the final result of this task.
+ * A GradedTask completes when all its child tasks complete. The resulting
+ * success or failure of the task depends on the "grader" used in combination
+ * with the results of the child tasks.
  *
- * A GradedTask is immutable if its sub-tasks are immutable.
+ * @param <T>
  */
-public final class GradedTask implements Task {
-	private final Iterable<Task> tasks;
+public final class GradedTask<T> implements Task<Collection<T>> {
+	private final Deque<BiConsumer<Collection<T>,Exception>> pendingConsumers = new ArrayDeque<>();
+
+	private final Collection<Task<T>> tasks;
 	private final Function<Grade,Optional<Boolean>> grader;
 
-	public GradedTask(Collection<Task> tasks, Function<Grade, Optional<Boolean>> grader) {
+	private boolean completed = false;
+
+	private transient Collection<T> successes;
+	private transient ExceptionList failures;
+
+	public GradedTask(Collection<Task<T>> tasks, Function<Grade, Optional<Boolean>> grader) {
 		this.tasks = new ArrayList<>(tasks);
 		this.grader = grader;
+
+		if (tasks.isEmpty()) {
+			completed = true;
+			successes = Collections.emptyList();
+			failures  = null;
+		} else {
+			AtomicInteger completedTaskCounter = new AtomicInteger(0);
+			List<T> _successes = new CopyOnWriteArrayList<>();
+			List<Exception> _failures = new CopyOnWriteArrayList<>();
+
+			for (Task<T> task : tasks) {
+				task.forEach((t, e) -> {
+					int i = completedTaskCounter.incrementAndGet();
+
+					if (e != null) {
+						_failures.add(e);
+					} else {
+						_successes.add(t);
+					}
+
+					if (i == tasks.size()) {
+						completed = true;
+
+						if (!_failures.isEmpty()) {
+							successes = null;
+							failures = new ExceptionList(_failures);
+						} else {
+							successes = _successes;
+							failures = null;
+						}
+
+						while (!pendingConsumers.isEmpty()) {
+							pendingConsumers.poll().accept(successes, failures);
+						}
+					}
+				});
+			}
+		}
+	}
+
+	@Override
+	public void forEach(BiConsumer<Collection<T>, Exception> blk) {
+		if (isCompleted()) {
+			blk.accept(successes, failures);
+		} else {
+			pendingConsumers.add(blk);
+		}
+	}
+
+	@Override
+	public boolean isCompleted() {
+		return completed;
 	}
 
 	@Override
@@ -30,7 +90,7 @@ public final class GradedTask implements Task {
 		int numFailures = 0;
 		int numIncomplete = 0;
 
-		for (Task task : tasks) {
+		for (Task<? extends T> task : tasks) {
 			Optional<Boolean> o = task.isSuccess();
 			if (o.isPresent()) {
 				if (o.get()) {
@@ -46,12 +106,12 @@ public final class GradedTask implements Task {
 		return grader.apply(new Grade(numSuccesses,numFailures,numIncomplete));
 	}
 
-	public static GradedTask of(Function<Grade,Optional<Boolean>> grader, Task... tasks) {
-		return new GradedTask(Arrays.asList(tasks),grader);
+	public static <T,E extends Exception> GradedTask<T> of(Function<Grade,Optional<Boolean>> grader, Task<T>... tasks) {
+		return new GradedTask<>(Arrays.asList(tasks),grader);
 	}
 
-	public static GradedTask requiresAllSuccesses(Task... tasks) {
-		return new GradedTask(Arrays.asList(tasks), grade -> {
+	public static <T,E extends Exception> GradedTask<T> requiresAllSuccesses(Task<T>... tasks) {
+		return new GradedTask<>(Arrays.asList(tasks), grade -> {
 			if (grade.getNumIncomplete() > 0) {
 				return Optional.empty();
 			}
@@ -59,8 +119,8 @@ public final class GradedTask implements Task {
 		});
 	}
 
-	public static GradedTask requiresAnySuccesses(Task... tasks) {
-		return new GradedTask(Arrays.asList(tasks), grade -> {
+	public static <T,E extends Exception> GradedTask<T> requiresAnySuccesses(Task<T>... tasks) {
+		return new GradedTask<>(Arrays.asList(tasks), grade -> {
 			if (grade.getNumIncomplete() > 0) {
 				return Optional.empty();
 			}
@@ -68,8 +128,8 @@ public final class GradedTask implements Task {
 		});
 	}
 
-	public static GradedTask requiresSomeSuccesses(int howMany, Task... tasks) {
-		return new GradedTask(Arrays.asList(tasks), grade -> {
+	public static <T,E extends Exception> GradedTask<T> requiresSomeSuccesses(int howMany, Task<T>... tasks) {
+		return new GradedTask<>(Arrays.asList(tasks), grade -> {
 			if (grade.getNumIncomplete() > 0) {
 				return Optional.empty();
 			}
