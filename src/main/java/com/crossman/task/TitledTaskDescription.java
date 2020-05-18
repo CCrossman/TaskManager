@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.crossman.util.Preconditions.checkNotNull;
 
@@ -30,6 +31,11 @@ public final class TitledTaskDescription implements Serializable, TaskDescriptio
 	@Override
 	public String getDescription() {
 		return description;
+	}
+
+	@Override
+	public TaskInstance toTask() {
+		return new TaskInstance(description, subTasks.stream().map(td -> td.toTask()).collect(Collectors.toList()), false, true);
 	}
 
 	public List<TaskDescription> getSubTasks() {

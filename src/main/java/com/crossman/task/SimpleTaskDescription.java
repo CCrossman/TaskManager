@@ -1,6 +1,7 @@
 package com.crossman.task;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Objects;
 
 import static com.crossman.util.Preconditions.checkNotNull;
@@ -15,6 +16,11 @@ public final class SimpleTaskDescription implements Serializable, TaskDescriptio
 	@Override
 	public String getDescription() {
 		return description;
+	}
+
+	@Override
+	public TaskInstance toTask() {
+		return new TaskInstance(description, Collections.emptyList(),false,true);
 	}
 
 	@Override
