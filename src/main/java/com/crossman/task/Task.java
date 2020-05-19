@@ -1,125 +1,271 @@
 package com.crossman.task;
 
-import com.crossman.util.ExceptionList;
-
+import java.io.Serializable;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
-/**
- * A Task has a concept of completing successfully, completing unsuccessfully,
- * and being incomplete. Subtypes expand on these basic concepts.
- */
-public interface Task<T> {
-	public static final Task<Void> success = SuccessfulTask.instance;
-	public static final Task<Void> failure = FailedTask.instance;
-	public static final Task<Void> incomplete = IncompleteTask.instance;
+import static com.crossman.util.Preconditions.checkNotNull;
 
-	public default <U> Task<U> flatMap(Function<T,Task<U>> fn) {
-		BasicTask<U> task = BasicTask.incomplete();
-		forEach((t,e1) -> {
-			if (e1 != null) {
-				task.completeUnsuccessfully(e1);
-			} else {
-				fn.apply(t).forEach((u,e2) -> {
-					if (e2 != null) {
-						task.completeUnsuccessfully(e2);
-					} else {
-						task.completeSuccessfully(u);
-					}
-				});
-			}
+public final class Task implements Serializable {
+	private final Task.Node root;
+
+	public Task(Node root) {
+		this.root = root;
+	}
+
+	public <T> T fold(T initial, BiFunction<T,Node,T> fn) {
+		if (root == null) {
+			return initial;
+		}
+		return root.foldDescendantsAndSelf(initial,fn);
+	}
+
+	public boolean isTaskCompleted() {
+		if (root == null) {
+			return false;
+		}
+		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isCompleted());
+	}
+
+	public boolean isTaskSucceeded() {
+		if (root == null) {
+			return false;
+		}
+		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isSucceeded());
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Task task = (Task) o;
+		return Objects.equals(root, task.root);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(root);
+	}
+
+	public static Task incomplete(String description) {
+		return make(b -> {
+			b.withDescription(description);
 		});
-		return task;
 	}
 
-	public void forEach(BiConsumer<T,Exception> blk);
-
-	public default boolean isCompleted() {
-		return isSuccess().isPresent();
-	}
-
-	public default boolean isNotCompleted() {
-		return !isCompleted();
-	}
-
-	public default <U> Task<U> map(Function<T,U> fn) {
-		return new MappedTask<>(this,fn);
-	}
-
-	public Optional<Boolean> isSuccess();
-
-	public default Optional<Boolean> isFailure() {
-		return isSuccess().map(b -> !b);
-	}
-
-	public default <U extends T> Task<T> recover(Function<Exception,U> fn) {
-		return recoverWith(e -> BasicTask.succeed(fn.apply(e)));
-	}
-
-	public default <U extends T> Task<T> recoverWith(Function<Exception,Task<U>> fn) {
-		BasicTask<T> task = BasicTask.incomplete();
-		forEach((t,e1) -> {
-			if (e1 != null) {
-				try {
-					Task<U> uTask = fn.apply(e1);
-					uTask.forEach((u,e2) -> {
-						if (e2 != null) {
-							task.completeUnsuccessfully(e2);
-						} else {
-							task.completeSuccessfully(u);
-						}
-					});
-				} catch (Exception e3) {
-					task.completeUnsuccessfully(e3);
-				}
-			} else {
-				task.completeSuccessfully(t);
-			}
+	public static Task incomplete(String title, String description) {
+		return make(b -> {
+			b.withTitle(title);
+			b.withDescription(description);
 		});
-		return task;
 	}
 
-	public static <T> Task<T> constant(T t) {
-		return success.map($ -> t);
+	public static Task succeeded(String title, String description) {
+		return make(b -> {
+			b.withTitle(title);
+			b.withDescription(description);
+			b.withCompleted(true);
+			b.withSucceeded(true);
+		});
 	}
 
-	public static <T> Task<T> join(Task<Task<T>> task) {
-		return task.flatMap(Function.identity());
+	public static Task failed(String title, String description) {
+		return make(b -> {
+			b.withTitle(title);
+			b.withDescription(description);
+			b.withCompleted(true);
+			b.withSucceeded(false);
+		});
 	}
 
-	public static <T> Task<List<T>> sequence(List<Task<T>> tasks) {
-		final int len = tasks.size();
-		final Map<Integer,T> results = new HashMap<>();
-		final List<Exception> errors = new ArrayList<>();
-		final AtomicInteger completionCounter = new AtomicInteger(0);
-		final BasicTask<List<T>> ret = BasicTask.incomplete();
+	public static Task failed(String title, String description, Exception exception) {
+		return make(b -> {
+			b.withTitle(title);
+			b.withDescription(description);
+			b.withCompleted(true);
+			b.withSucceeded(false);
+			b.withException(exception);
+		});
+	}
 
-		for (int i = 0; i < len; ++i) {
-			final int j = i;
+	public static Task make(Consumer<Node.Builder> blk) {
+		Node.Builder b = new Node.Builder();
+		blk.accept(b);
+		return new Task(b.build());
+	}
 
-			tasks.get(i).forEach((t, e) -> {
-				if (e != null) {
-					errors.add(e);
-				} else {
-					results.put(j,t);
-				}
+	public static final class Node implements Serializable {
+		private final String title;
+		private final String description;
+		private final Map<String,Serializable> properties;
+		private final List<Node> children;
 
-				if (completionCounter.incrementAndGet() == len) {
-					if (!errors.isEmpty()) {
-						ret.completeUnsuccessfully(new ExceptionList(errors));
-					} else {
-						final List<T> _results = new ArrayList<>();
-						for (int k = 0; k < len; ++k) {
-							_results.add(results.get(k));
-						}
-						ret.completeSuccessfully(_results);
-					}
-				}
-			});
+		private boolean completed;
+		private boolean succeeded;
+		private Exception exception;
+
+		public Node(String description) {
+			this(null,description,Collections.emptyMap(),Collections.emptyList(),false,true);
 		}
 
-		return ret;
+		public Node(String title, String description) {
+			this(title,description,Collections.emptyMap(),Collections.emptyList(),false,true);
+		}
+
+		public Node(String title, String description, Map<String, Serializable> properties, List<Node> children, boolean completed, boolean succeeded) {
+			this.title = title;
+			this.description = checkNotNull(description);
+			this.properties = new HashMap<>(properties);
+			this.children = new ArrayList<>(children);
+			this.completed = completed;
+			this.succeeded = succeeded;
+		}
+
+		public Optional<String> getTitle() {
+			return Optional.ofNullable(title);
+		}
+
+		public String getDescription() {
+			return description;
+		}
+
+		public Object getProperty(String key) {
+			return properties.get(key);
+		}
+
+		private Serializable setProperty(String key, Serializable value) {
+			return properties.put(key,value);
+		}
+
+		public Map<String, Serializable> getProperties() {
+			return Collections.unmodifiableMap(properties);
+		}
+
+		public List<Node> getChildren() {
+			return Collections.unmodifiableList(children);
+		}
+
+		public Exception getException() {
+			return exception;
+		}
+
+		private void setException(Exception exception) {
+			this.exception = exception;
+		}
+
+		public boolean isCompleted() {
+			return completed;
+		}
+
+		private void setCompleted(boolean completed) {
+			this.completed = completed;
+		}
+
+		public boolean isSucceeded() {
+			return succeeded && (exception == null);
+		}
+
+		private void setSucceeded(boolean succeeded) {
+			this.succeeded = succeeded;
+		}
+
+		public <T> T foldDescendantsAndSelf(T initial, BiFunction<T,Node,T> fn) {
+			T sum = initial;
+			for (Node child : children) {
+				sum = child.foldDescendantsAndSelf(sum,fn);
+			}
+			return fn.apply(sum,this);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			Node node = (Node) o;
+			return isCompleted() == node.isCompleted() &&
+					isSucceeded() == node.isSucceeded() &&
+					Objects.equals(getTitle(), node.getTitle()) &&
+					getDescription().equals(node.getDescription()) &&
+					getProperties().equals(node.getProperties()) &&
+					getChildren().equals(node.getChildren()) &&
+					Objects.equals(getException(), node.getException());
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(getTitle(), getDescription(), getProperties(), getChildren(), isCompleted(), isSucceeded(), getException());
+		}
+
+		public static Builder builder() {
+			return new Builder();
+		}
+
+		public static final class Builder {
+			private final List<Supplier<Node>> children = new ArrayList<>();
+			private final Map<String,Serializable> properties = new HashMap<>();
+
+			private String title;
+			private String description;
+			private boolean completed;
+			private boolean succeeded;
+			private Exception exception;
+
+			public Builder() {}
+
+			public Builder withTitle(String title) {
+				this.title = title;
+				return this;
+			}
+
+			public Builder withDescription(String description) {
+				this.description = description;
+				return this;
+			}
+
+			public Builder withCompleted(boolean completed) {
+				this.completed = completed;
+				return this;
+			}
+
+			public Builder withSucceeded(boolean succeeded) {
+				this.succeeded = succeeded;
+				return this;
+			}
+
+			public Builder withException(Exception exception) {
+				this.exception = exception;
+				return this;
+			}
+
+			public Builder withChild(Node node) {
+				this.children.add(() -> node);
+				return this;
+			}
+
+			public Builder withChild(Task tree) {
+				return withChild(tree.root);
+			}
+
+			public Builder withChild(Consumer<Builder> blk) {
+				Builder b = new Builder();
+				blk.accept(b);
+				this.children.add(b::build);
+				return this;
+			}
+
+			public Builder withProperty(String key, Serializable value) {
+				this.properties.put(key,value);
+				return this;
+			}
+
+			public Node build() {
+				final Node node = new Node(title, description, properties, children.stream().map(Supplier::get).collect(Collectors.toList()), completed, succeeded);
+				node.setException(exception);
+				return node;
+			}
+		}
 	}
 }
