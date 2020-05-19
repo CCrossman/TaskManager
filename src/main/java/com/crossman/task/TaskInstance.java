@@ -1,22 +1,34 @@
 package com.crossman.task;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Objects;
+import java.util.*;
 
 import static com.crossman.util.Preconditions.checkNotNull;
 
 public final class TaskInstance {
 	private final String description;
 	private final Collection<TaskInstance> subTasks;
+	private final Map<String,Object> properties;
+
+	private TaskInstance parent;
 	private boolean completed;
 	private boolean success;
 
-	public TaskInstance(String description, Collection<TaskInstance> subTasks, boolean completed, boolean success) {
+	public TaskInstance(String description, Collection<TaskInstance> subTasks, Map<String,Object> properties, boolean completed, boolean success) {
 		this.description = checkNotNull(description);
 		this.subTasks = new ArrayList<>(checkNotNull(subTasks));
+		this.properties = new HashMap<>(properties);
 		this.completed = completed;
 		this.success = success;
+
+		subTasks.forEach(ti -> ti.setParent(this));
+	}
+
+	public TaskInstance getParent() {
+		return parent;
+	}
+
+	private void setParent(TaskInstance ti) {
+		this.parent = ti;
 	}
 
 	public String getDescription() {
@@ -27,8 +39,38 @@ public final class TaskInstance {
 		return subTasks;
 	}
 
+	public Map<String, Object> getProperties() {
+		return properties;
+	}
+
+	public Object getAncestralProperty(String key) {
+		if (properties.containsKey(key)) {
+			return properties.get(key);
+		}
+		if (parent != null) {
+			return parent.getProperty(key);
+		}
+		return null;
+	}
+
+	public Object getProperty(String key) {
+		return properties.get(key);
+	}
+
+	public Object setProperty(String key, Object value) {
+		return properties.put(key,value);
+	}
+
+	public Object removeProperty(String key) {
+		return properties.remove(key);
+	}
+
+	public boolean isTreeCompleted() {
+		return isCompleted() && subTasks.stream().allMatch(ti -> ti.isTreeCompleted());
+	}
+
 	public boolean isCompleted() {
-		return completed && subTasks.stream().allMatch(ti -> ti.isCompleted());
+		return completed;
 	}
 
 	public void setCompleted(boolean completed) {
@@ -40,8 +82,12 @@ public final class TaskInstance {
 		setCompleted(completed);
 	}
 
+	public boolean isTreeSuccess() {
+		return isSuccess() && subTasks.stream().allMatch(ti -> ti.isTreeSuccess());
+	}
+
 	public boolean isSuccess() {
-		return success && subTasks.stream().allMatch(ti -> ti.isSuccess());
+		return success;
 	}
 
 	public void setSuccess(boolean success) {
@@ -51,31 +97,5 @@ public final class TaskInstance {
 	public void setDescendantsSuccess(boolean success) {
 		subTasks.forEach(ti -> ti.setDescendantsSuccess(success));
 		setSuccess(success);
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		TaskInstance that = (TaskInstance) o;
-		return isCompleted() == that.isCompleted() &&
-				isSuccess() == that.isSuccess() &&
-				getDescription().equals(that.getDescription()) &&
-				getSubTasks().equals(that.getSubTasks());
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(getDescription(), getSubTasks(), isCompleted(), isSuccess());
-	}
-
-	@Override
-	public String toString() {
-		return "TaskInstance{" +
-				"description='" + description + '\'' +
-				", subTasks=" + subTasks +
-				", completed=" + completed +
-				", success=" + success +
-				'}';
 	}
 }

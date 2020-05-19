@@ -82,7 +82,8 @@ public class TaskDescriptionTestSuite {
 		assertNotNull(task);
 		assertFalse(task.isCompleted());
 		task.setCompleted(true);
-		assertFalse(task.isCompleted());
+		assertTrue(task.isCompleted());
+		assertFalse(task.isTreeCompleted());
 		task.setDescendantsCompleted(true);
 		assertTrue(task.isCompleted());
 	}

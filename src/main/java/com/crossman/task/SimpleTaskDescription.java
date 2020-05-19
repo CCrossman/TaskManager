@@ -20,7 +20,7 @@ public final class SimpleTaskDescription implements Serializable, TaskDescriptio
 
 	@Override
 	public TaskInstance toTask() {
-		return new TaskInstance(description, Collections.emptyList(),false,true);
+		return new TaskInstance(description, Collections.emptyList(), Collections.emptyMap(), false,true);
 	}
 
 	@Override

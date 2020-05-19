@@ -35,7 +35,7 @@ public final class TitledTaskDescription implements Serializable, TaskDescriptio
 
 	@Override
 	public TaskInstance toTask() {
-		return new TaskInstance(description, subTasks.stream().map(td -> td.toTask()).collect(Collectors.toList()), false, true);
+		return new TaskInstance(description, subTasks.stream().map(td -> td.toTask()).collect(Collectors.toList()), Collections.emptyMap(), false, true);
 	}
 
 	public List<TaskDescription> getSubTasks() {
