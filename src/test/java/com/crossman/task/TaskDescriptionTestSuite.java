@@ -118,6 +118,8 @@ public class TaskDescriptionTestSuite {
 			});
 		});
 
+		task.addChild(Task.incomplete("Visit the post office."));
+
 		assertFalse(task.isTaskCompleted());
 		assertFalse(task.isTaskSucceeded());
 

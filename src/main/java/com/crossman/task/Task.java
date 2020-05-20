@@ -17,6 +17,10 @@ public final class Task implements Serializable {
 		this.root = checkNotNull(root);
 	}
 
+	public void addChild(Task task) {
+		root.addChild(task.getRoot());
+	}
+
 	public void eachChild(Consumer<Task> blk) {
 		for (Node child : root.getChildren()) {
 			blk.accept(new Task(child));
@@ -252,6 +256,10 @@ public final class Task implements Serializable {
 
 		public List<Node> getChildren() {
 			return Collections.unmodifiableList(children);
+		}
+
+		public void addChild(Node node) {
+			children.add(node);
 		}
 
 		public Exception getException() {
