@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -13,28 +14,135 @@ public final class Task implements Serializable {
 	private final Task.Node root;
 
 	public Task(Node root) {
-		this.root = root;
+		this.root = checkNotNull(root);
 	}
 
-	public <T> T fold(T initial, BiFunction<T,Node,T> fn) {
-		if (root == null) {
-			return initial;
+	public void eachChild(Consumer<Task> blk) {
+		for (Node child : root.getChildren()) {
+			blk.accept(new Task(child));
 		}
-		return root.foldDescendantsAndSelf(initial,fn);
+	}
+
+	public void eachPreOrder(Consumer<Task> blk) {
+		eachPreOrder(root,blk);
+	}
+
+	private void eachPreOrder(Node node, Consumer<Task> blk) {
+		if (node != null) {
+			blk.accept(new Task(node));
+			node.getChildren().forEach(n -> eachPreOrder(n, blk));
+		}
+	}
+
+	public void eachPostOrder(Consumer<Task> blk) {
+		eachPostOrder(root,blk);
+	}
+
+	private void eachPostOrder(Node node, Consumer<Task> blk) {
+		if (node != null) {
+			node.getChildren().forEach(n -> eachPostOrder(n, blk));
+			blk.accept(new Task(node));
+		}
+	}
+
+	public Optional<Task> findChild(Predicate<? super Task> predicate) {
+		Optional<Node> o = root.getChildren().stream().filter(n -> predicate.test(new Task(n))).findFirst();
+		return o.map(Task::new);
+	}
+
+	public Optional<Task> findDescendant(Predicate<? super Task> predicate) {
+		return foldPreOrder(Optional.empty(), (o,t) -> {
+			if (o.isPresent()) {
+				return o;
+			}
+			if (predicate.test(t)) {
+				return Optional.of(t);
+			}
+			return Optional.empty();
+		});
+	}
+
+	public <T> T foldPreOrder(T initial, BiFunction<T,Task,T> fn) {
+		return root.foldSelfAndDescendants(initial,(t,n) -> fn.apply(t,new Task(n)));
+	}
+
+	public <T> T foldPostOrder(T initial, BiFunction<T,Task,T> fn) {
+		return root.foldDescendantsAndSelf(initial,(t,n) -> fn.apply(t,new Task(n)));
+	}
+
+	public Task getChild(int i) {
+		Node n = root.getChildren().get(i);
+		return new Task(n);
+	}
+
+	public Node getRoot() {
+		return root;
 	}
 
 	public boolean isTaskCompleted() {
-		if (root == null) {
-			return false;
-		}
 		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isCompleted());
 	}
 
-	public boolean isTaskSucceeded() {
-		if (root == null) {
-			return false;
+	public void setTaskCompleted(boolean completed, Task.SetterOption... setterOptions) {
+		Set<Task.SetterOption> options = new HashSet<>(Arrays.asList(setterOptions));
+		if (options.contains(SetterOption.CASCADE)) {
+			eachPostOrder(n -> n.setTaskCompleted(completed));
+		} else {
+			root.setCompleted(completed);
 		}
+	}
+
+	public boolean isTaskSucceeded() {
 		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isSucceeded());
+	}
+
+	public void setTaskSucceeded(boolean succeeded, Task.SetterOption... setterOptions) {
+		Set<Task.SetterOption> options = new HashSet<>(Arrays.asList(setterOptions));
+		if (options.contains(SetterOption.CASCADE)) {
+			eachPostOrder(n -> n.setTaskSucceeded(succeeded));
+		} else {
+			root.setSucceeded(succeeded);
+		}
+	}
+
+	public Optional<String> getTitle() {
+		return root.getTitle();
+	}
+
+	public String getDescription() {
+		return root.getDescription();
+	}
+
+	public Serializable getProperty(String key) {
+		return root.getProperty(key);
+	}
+
+	public Serializable setProperty(String key, Serializable value) {
+		return root.setProperty(key, value);
+	}
+
+	public Map<String, Serializable> getProperties() {
+		return root.getProperties();
+	}
+
+	public List<Task> getChildren() {
+		return root.getChildren().stream().map(Task::new).collect(Collectors.toList());
+	}
+
+	public Exception getException() {
+		return root.getException();
+	}
+
+	public void setException(Exception exception) {
+		root.setException(exception);
+	}
+
+	public boolean isCompleted() {
+		return root.isCompleted();
+	}
+
+	public boolean isSucceeded() {
+		return root.isSucceeded();
 	}
 
 	@Override
@@ -97,7 +205,11 @@ public final class Task implements Serializable {
 		return new Task(b.build());
 	}
 
-	public static final class Node implements Serializable {
+	public static enum SetterOption {
+		CASCADE
+	}
+
+	private static final class Node implements Serializable {
 		private final String title;
 		private final String description;
 		private final Map<String,Serializable> properties;
@@ -132,7 +244,7 @@ public final class Task implements Serializable {
 			return description;
 		}
 
-		public Object getProperty(String key) {
+		public Serializable getProperty(String key) {
 			return properties.get(key);
 		}
 
@@ -172,12 +284,20 @@ public final class Task implements Serializable {
 			this.succeeded = succeeded;
 		}
 
-		public <T> T foldDescendantsAndSelf(T initial, BiFunction<T,Node,T> fn) {
+		private <T> T foldDescendantsAndSelf(T initial, BiFunction<T,Node,T> fn) {
 			T sum = initial;
 			for (Node child : children) {
 				sum = child.foldDescendantsAndSelf(sum,fn);
 			}
 			return fn.apply(sum,this);
+		}
+
+		private <T> T foldSelfAndDescendants(T initial, BiFunction<T,Node,T> fn) {
+			T sum = fn.apply(initial,this);
+			for (Node child : children) {
+				sum = child.foldSelfAndDescendants(sum,fn);
+			}
+			return sum;
 		}
 
 		@Override
