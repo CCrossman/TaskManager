@@ -80,7 +80,7 @@ public final class Task implements Serializable {
 	}
 
 	public boolean isTaskCompleted() {
-		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isCompleted());
+		return root.getResolver().resolveCompleted(root);
 	}
 
 	public void setTaskCompleted(boolean completed, Task.SetterOption... setterOptions) {
@@ -93,7 +93,7 @@ public final class Task implements Serializable {
 	}
 
 	public boolean isTaskSucceeded() {
-		return root.foldDescendantsAndSelf(true, (b,n) -> b && n.isSucceeded());
+		return root.getResolver().resolveSucceeded(root);
 	}
 
 	public void setTaskSucceeded(boolean succeeded, Task.SetterOption... setterOptions) {
@@ -209,29 +209,23 @@ public final class Task implements Serializable {
 		CASCADE
 	}
 
-	private static final class Node implements Serializable {
+	public static final class Node implements Serializable {
 		private final String title;
 		private final String description;
 		private final Map<String,Serializable> properties;
 		private final List<Node> children;
+		private final TaskResolver resolver;
 
 		private boolean completed;
 		private boolean succeeded;
 		private Exception exception;
 
-		public Node(String description) {
-			this(null,description,Collections.emptyMap(),Collections.emptyList(),false,true);
-		}
-
-		public Node(String title, String description) {
-			this(title,description,Collections.emptyMap(),Collections.emptyList(),false,true);
-		}
-
-		public Node(String title, String description, Map<String, Serializable> properties, List<Node> children, boolean completed, boolean succeeded) {
+		public Node(String title, String description, Map<String, Serializable> properties, List<Node> children, TaskResolver resolver, boolean completed, boolean succeeded) {
 			this.title = title;
 			this.description = checkNotNull(description);
 			this.properties = new HashMap<>(properties);
 			this.children = new ArrayList<>(children);
+			this.resolver = resolver;
 			this.completed = completed;
 			this.succeeded = succeeded;
 		}
@@ -262,6 +256,10 @@ public final class Task implements Serializable {
 
 		public Exception getException() {
 			return exception;
+		}
+
+		public TaskResolver getResolver() {
+			return resolver;
 		}
 
 		private void setException(Exception exception) {
@@ -311,12 +309,13 @@ public final class Task implements Serializable {
 					getDescription().equals(node.getDescription()) &&
 					getProperties().equals(node.getProperties()) &&
 					getChildren().equals(node.getChildren()) &&
+					getResolver().equals(node.getResolver()) &&
 					Objects.equals(getException(), node.getException());
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(getTitle(), getDescription(), getProperties(), getChildren(), isCompleted(), isSucceeded(), getException());
+			return Objects.hash(getTitle(), getDescription(), getProperties(), getChildren(), getResolver(), isCompleted(), isSucceeded(), getException());
 		}
 
 		public static Builder builder() {
@@ -332,6 +331,7 @@ public final class Task implements Serializable {
 			private boolean completed;
 			private boolean succeeded;
 			private Exception exception;
+			private TaskResolver resolver;
 
 			public Builder() {}
 
@@ -381,8 +381,16 @@ public final class Task implements Serializable {
 				return this;
 			}
 
+			public Builder withResolver(TaskResolver resolver) {
+				this.resolver = resolver;
+				return this;
+			}
+
 			public Node build() {
-				final Node node = new Node(title, description, properties, children.stream().map(Supplier::get).collect(Collectors.toList()), completed, succeeded);
+				if (resolver == null) {
+					resolver = DefaultTaskResolver.instance;
+				}
+				final Node node = new Node(title, description, properties, children.stream().map(Supplier::get).collect(Collectors.toList()), resolver, completed, succeeded);
 				node.setException(exception);
 				return node;
 			}

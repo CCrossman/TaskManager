@@ -96,4 +96,36 @@ public class TaskDescriptionTestSuite {
 		assertTrue(task.isTaskCompleted());
 		assertTrue(task.isTaskSucceeded());
 	}
+
+	@Test
+	public void testSuccessByThreshold() {
+		Task task = Task.make(b -> {
+			b.withTitle("Chores");
+			b.withDescription("Do one of your chores.");
+			b.withChild(Task.incomplete("Wash the dishes."));
+			b.withChild(Task.incomplete("Wash the car."));
+			b.withChild(Task.incomplete("Fold the laundry."));
+			b.withResolver(new TaskResolver() {
+				@Override
+				public boolean resolveSucceeded(Task.Node node) {
+					return resolveCompleted(node);
+				}
+
+				@Override
+				public boolean resolveCompleted(Task.Node node) {
+					return node.getChildren().stream().anyMatch(n -> n.isCompleted());
+				}
+			});
+		});
+
+		assertFalse(task.isTaskCompleted());
+		assertFalse(task.isTaskSucceeded());
+
+		final Task child = task.getChild(1);
+		child.setTaskCompleted(true);
+		child.setTaskSucceeded(true);
+
+		assertTrue(task.isTaskCompleted());
+		assertTrue(task.isTaskSucceeded());
+	}
 }
