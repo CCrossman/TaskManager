@@ -18,7 +18,7 @@ public final class Task implements Serializable {
 	}
 
 	public void addChild(Task task) {
-		root.addChild(task.getRoot());
+		root.getChildren().add(task.getRoot());
 	}
 
 	public void eachChild(Consumer<Task> blk) {
@@ -149,6 +149,14 @@ public final class Task implements Serializable {
 		return root.isSucceeded();
 	}
 
+	public void removeChild(int pos) {
+		root.getChildren().remove(pos);
+	}
+
+	public void removeChild(Task task) {
+		root.getChildren().remove(task.getRoot());
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
@@ -255,11 +263,7 @@ public final class Task implements Serializable {
 		}
 
 		public List<Node> getChildren() {
-			return Collections.unmodifiableList(children);
-		}
-
-		public void addChild(Node node) {
-			children.add(node);
+			return children;
 		}
 
 		public Exception getException() {
