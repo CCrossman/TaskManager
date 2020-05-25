@@ -20,6 +20,8 @@ public class TaskManagerApp extends Application {
 	private final ToggleGroup toggleGroup = new ToggleGroup();
 	private final AtomicReference<TreeItem> focus = new AtomicReference<>();
 	private final Map<TreeItem,RadioButton> itemsToRadioButtons = new HashMap<>();
+	private final Map<TreeItem,CheckBox> itemsToCheckBoxes = new HashMap<>();
+	private final Map<CheckBox,TreeItem> checkBoxesToItems = new HashMap<>();
 
 	@Override
 	public void start(Stage stage) throws Exception {
@@ -142,6 +144,9 @@ public class TaskManagerApp extends Application {
 		treeView.setRoot(rootItem);
 		focus.set(rootItem);
 
+		checkBoxesToItems.put(checkBox,rootItem);
+		itemsToCheckBoxes.put(rootItem,checkBox);
+		setCompleteIfChildrenComplete(rootItem);
 		hookRadioButton(radioButton, rootItem);
 		radioButton.setSelected(true);
 	}
@@ -155,6 +160,9 @@ public class TaskManagerApp extends Application {
 		final TreeItem focusedTreeItem = focus.get();
 		focusedTreeItem.getChildren().add(item);
 		expandTree(focusedTreeItem);
+		checkBoxesToItems.put(checkBox,item);
+		itemsToCheckBoxes.put(item,checkBox);
+		setCompleteIfChildrenComplete(item);
 		hookRadioButton(radioButton, item);
 
 		// delete the item and its children
@@ -164,10 +172,31 @@ public class TaskManagerApp extends Application {
 		});
 	}
 
+	private void setCompleteIfChildrenComplete(TreeItem item) {
+		if (item == null) {
+			return;
+		}
+		System.err.println("setCompleteIfChildrenComplete(" + item.getValue() + ")");
+		ObservableList children = item.getChildren();
+		if (children.isEmpty()) {
+			return;
+		}
+		CheckBox cb = itemsToCheckBoxes.get(item);
+		if (children.stream().allMatch(ti -> itemsToCheckBoxes.get(ti).isSelected())) {
+			cb.setSelected(true);
+			cb.setDisable(true);
+		} else {
+			cb.setSelected(false);
+			cb.setDisable(false);
+		}
+		setCompleteIfChildrenComplete(item.getParent());
+	}
+
 	private CheckBox initializeCheckBox() {
 		final CheckBox checkBox = new CheckBox();
 		checkBox.setOnAction($2 -> {
 			System.err.println("Clicked! Now " + (checkBox.isSelected() ? "selected" : "unselected"));
+			setCompleteIfChildrenComplete(checkBoxesToItems.get(checkBox).getParent());
 		});
 		return checkBox;
 	}
