@@ -34,32 +34,32 @@ public class TaskManagerApp extends Application {
 		TreeView treeView = (TreeView)root.lookup("#treeView");
 
 		btnAddTask.setOnAction($1 -> {
-			final String text = txtAddTask.getText();
-			if (text != null && !text.isEmpty()) {
-				txtAddTask.clear();
-				initializeTreeItem(text);
-			}
+			processTextControls(txtAddTask);
 		});
 
 		txtAddTask.setOnKeyPressed(ke -> {
 			if (ke.getCode() == KeyCode.ENTER) {
-				final String text = txtAddTask.getText();
-				if (text != null && !text.isEmpty()) {
-					txtAddTask.clear();
-					initializeTreeItem(text);
-				}
+				processTextControls(txtAddTask);
 			}
-			registerKeyControls(ke);
+			processKeyControls(ke);
 		});
 
 		initializeRootItem(treeView);
 
 		scene.setOnKeyPressed(ke -> {
-			registerKeyControls(ke);
+			processKeyControls(ke);
 		});
 	}
 
-	private void registerKeyControls(KeyEvent ke) {
+	private void processTextControls(TextField txtAddTask) {
+		final String text = txtAddTask.getText();
+		if (text != null && !text.isEmpty()) {
+			txtAddTask.clear();
+			initializeTreeItem(text);
+		}
+	}
+
+	private void processKeyControls(KeyEvent ke) {
 		if (ke.isControlDown() && ke.getCode() == KeyCode.RIGHT) {
 			System.err.println("Ctrl + Right");
 			ke.consume();
@@ -116,12 +116,15 @@ public class TaskManagerApp extends Application {
 	}
 
 	private void hookRadioButton(RadioButton radioButton, TreeItem item) {
+		itemsToRadioButtons.put(item,radioButton);
+
 		radioButton.setOnAction($2 -> {
 			System.err.println("Clicked radio button for '" + item.getValue() + "'");
 			focus.set(item);
 		});
+
 		radioButton.setOnKeyPressed(ke -> {
-			registerKeyControls(ke);
+			processKeyControls(ke);
 		});
 	}
 
@@ -141,8 +144,6 @@ public class TaskManagerApp extends Application {
 
 		hookRadioButton(radioButton, rootItem);
 		radioButton.setSelected(true);
-
-		itemsToRadioButtons.put(rootItem,radioButton);
 	}
 
 	private void initializeTreeItem(String text) {
@@ -155,8 +156,6 @@ public class TaskManagerApp extends Application {
 		focusedTreeItem.getChildren().add(item);
 		expandTree(focusedTreeItem);
 		hookRadioButton(radioButton, item);
-
-		itemsToRadioButtons.put(item,radioButton);
 
 		// delete the item and its children
 		deleteButton.setOnAction($2 -> {
