@@ -1,5 +1,6 @@
 package com.crossman.manager;
 
+import com.crossman.task.Task;
 import javafx.application.Application;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
@@ -9,11 +10,15 @@ import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 
+import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -22,6 +27,16 @@ public class TaskManagerApp extends Application {
 	private final AtomicReference<TreeItem<String>> focus = new AtomicReference<>();
 	private final Map<TreeItem<String>,RadioButton> radioButtons = new HashMap<>();
 	private final BidiMap<TreeItem<String>,CheckBox> checkboxes = new DualHashBidiMap<>();
+
+	private final FileChooser fileLoader = new FileChooser();
+	private final FileChooser fileSaver = new FileChooser();
+
+	public TaskManagerApp() {
+		super();
+		fileLoader.setTitle("Load Task");
+		fileSaver.setTitle("Save Task");
+		fileSaver.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tasks", ".tsk"));
+	}
 
 	@Override
 	public void start(Stage stage) throws Exception {
@@ -32,10 +47,12 @@ public class TaskManagerApp extends Application {
 		stage.show();
 
 		Button btnAddTask = (Button)root.lookup("#btnAddTask");
+		Button btnSave = (Button)root.lookup("#btnSave");
+		Button btnLoad = (Button)root.lookup("#btnLoad");
 		TextField txtAddTask = (TextField)root.lookup("#txtAddTask");
 		TreeView<String> treeView = (TreeView<String>)root.lookup("#treeView");
 
-		btnAddTask.setOnAction($1 -> {
+		btnAddTask.setOnAction($ -> {
 			processTextControls(txtAddTask);
 		});
 
@@ -48,9 +65,63 @@ public class TaskManagerApp extends Application {
 
 		initializeRootItem(treeView);
 
+		btnSave.setOnAction($ -> {
+			processSaveAction(stage,treeView);
+		});
+
+		btnLoad.setOnAction($ -> {
+			processLoadAction(stage,treeView);
+		});
+
 		scene.setOnKeyPressed(ke -> {
 			processKeyControls(ke);
 		});
+	}
+
+	private void processLoadAction(Stage stage, TreeView<String> treeView) {
+		System.err.println("Load");
+		File selectedFile = fileLoader.showOpenDialog(stage);
+		if (selectedFile != null) {
+			try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(selectedFile))) {
+				Task task = (Task)ois.readObject();
+				treeView.setRoot(fromSaveObject(task));
+			} catch (IOException | ClassNotFoundException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void processSaveAction(Stage stage, TreeView<String> treeView) {
+		System.err.println("Save");
+		File selectedFile = fileSaver.showSaveDialog(stage);
+		if (selectedFile != null) {
+			try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(selectedFile))) {
+				oos.writeObject(toSaveObject(treeView.getRoot()));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private TreeItem<String> fromSaveObject(Task task) {
+		return fromSaveObject(task, null);
+	}
+
+	private TreeItem<String> fromSaveObject(Task task, TreeItem<String> parent) {
+		TreeItem<String> treeItem = loadTreeItem(parent, task.getValue());
+		for (Task child : task.getChildren()) {
+			treeItem.getChildren().add(fromSaveObject(child,treeItem));
+		}
+		expandTree(treeItem);
+		return treeItem;
+	}
+
+	private static Task toSaveObject(TreeItem<String> treeItem) {
+		List<Task> children = new ArrayList<>();
+		for (TreeItem<String> child : treeItem.getChildren()) {
+			children.add(toSaveObject(child));
+		}
+		return new Task(treeItem.getValue(), children);
 	}
 
 	private void processTextControls(TextField txtAddTask) {
@@ -121,7 +192,7 @@ public class TaskManagerApp extends Application {
 	private void hookRadioButton(RadioButton radioButton, TreeItem<String> item) {
 		radioButtons.put(item,radioButton);
 
-		radioButton.setOnAction($2 -> {
+		radioButton.setOnAction($ -> {
 			//System.err.println("Clicked radio button for '" + item.getValue() + "'");
 			focus.set(item);
 		});
@@ -166,11 +237,45 @@ public class TaskManagerApp extends Application {
 		hookRadioButton(radioButton, item);
 
 		// delete the item and its children
-		deleteButton.setOnAction($2 -> {
+		deleteButton.setOnAction($ -> {
 			//System.err.println("Clicked delete button.");
 			focusedTreeItem.getChildren().remove(item);
 			disableAndCheckParents(focusedTreeItem);
 		});
+	}
+
+	private TreeItem<String> loadTreeItem(TreeItem<String> parent, String text) {
+		if (parent == null) {
+			final CheckBox checkBox = initializeCheckBox();
+			final RadioButton radioButton = initializeRadioButton();
+
+			final TreeItem<String> item = new CheckBoxTreeItem<>(text, new HBox(radioButton, checkBox));
+
+			checkboxes.put(item, checkBox);
+			disableAndCheckParents(item);
+			hookRadioButton(radioButton, item);
+
+			return item;
+		} else {
+			final CheckBox checkBox = initializeCheckBox();
+			final RadioButton radioButton = initializeRadioButton();
+			final Hyperlink deleteButton = new Hyperlink("Delete");
+
+			final TreeItem<String> item = new CheckBoxTreeItem<>(text, new HBox(radioButton, checkBox, deleteButton));
+
+			checkboxes.put(item, checkBox);
+			disableAndCheckParents(item);
+			hookRadioButton(radioButton, item);
+
+			// delete the item and its children
+			deleteButton.setOnAction($ -> {
+				//System.err.println("Clicked delete button.");
+				parent.getChildren().remove(item);
+				disableAndCheckParents(parent);
+			});
+
+			return item;
+		}
 	}
 
 	private void disableAndCheckParents(TreeItem<String> item) {
@@ -192,7 +297,7 @@ public class TaskManagerApp extends Application {
 
 	private CheckBox initializeCheckBox() {
 		final CheckBox checkBox = new CheckBox();
-		checkBox.setOnAction($2 -> {
+		checkBox.setOnAction($ -> {
 			//System.err.println("Clicked! Now " + (checkBox.isSelected() ? "selected" : "unselected"));
 			disableAndCheckParents(checkboxes.getKey(checkBox).getParent());
 		});
