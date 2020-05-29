@@ -14,14 +14,20 @@ import static com.crossman.util.Preconditions.checkNotNull;
 public final class Task implements Serializable {
 	private final String value;
 	private final List<Task> children;
+	private boolean completed;
 
 	public Task(String value) {
 		this(value, Collections.emptyList());
 	}
 
 	public Task(String value, List<Task> children) {
+		this(value, children, false);
+	}
+
+	public Task(String value, List<Task> children, boolean completed) {
 		this.value = checkNotNull(value);
 		this.children = new ArrayList<>(children);
+		this.completed = completed;
 	}
 
 	public <T> T fold(T initial, BiFunction<T,String,T> folder) {
@@ -65,18 +71,27 @@ public final class Task implements Serializable {
 		return children;
 	}
 
+	public boolean isCompleted() {
+		return completed;
+	}
+
+	public void setCompleted(boolean completed) {
+		this.completed = completed;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		Task task = (Task) o;
 		return getValue().equals(task.getValue()) &&
+				isCompleted() == task.isCompleted() &&
 				getChildren().equals(task.getChildren());
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(getValue(), getChildren());
+		return Objects.hash(getValue(), getChildren(), isCompleted());
 	}
 
 	public static enum Order {

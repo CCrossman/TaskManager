@@ -1,6 +1,7 @@
 package com.crossman.manager;
 
 import com.crossman.task.Task;
+import javafx.collections.ObservableList;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.stage.FileChooser;
@@ -104,7 +105,7 @@ public final class TaskManagerView {
 			if (treeItem.getChildren().isEmpty()) {
 				checkBox.setSelected(false);
 			} else {
-				checkBox.setSelected(treeItem.getChildren().stream().allMatch(ti -> checkboxes.get(ti).isSelected()));
+				checkBox.setSelected(treeItem.getChildren().stream().allMatch(ti -> isChecked(ti)));
 			}
 		}
 		reportCompletionUpdate(treeItem.getParent());
@@ -140,14 +141,21 @@ public final class TaskManagerView {
 		if (treeItem == null) {
 			return;
 		}
-		if (radioButtons.get(treeItem).isSelected()) {
-			radioButtons.get(parent).setSelected(true);
+		if (isRadioSelected(treeItem)) {
+			setRadioSelected(parent, true);
 		}
 		checkboxes.remove(treeItem);
 		deletes.remove(treeItem);
 		radioButtons.remove(treeItem);
 	}
 
+	private void setRadioSelected(TreeItem<String> treeItem, boolean selected) {
+		radioButtons.get(treeItem).setSelected(selected);
+	}
+
+	private boolean isRadioSelected(TreeItem<String> treeItem) {
+		return radioButtons.get(treeItem).isSelected();
+	}
 
 	private void reportRadioUpdate(TreeItem<String> treeItem) {
 		if (treeItem == null) {
@@ -160,7 +168,7 @@ public final class TaskManagerView {
 		if (treeItem == null) {
 			return;
 		}
-		checkboxes.get(treeItem).setDisable(!treeItem.getChildren().isEmpty());
+		setDisabled(treeItem, !treeItem.getChildren().isEmpty());
 		disableCheckBoxIfChildrenExist(treeItem.getParent());
 	}
 
@@ -174,13 +182,15 @@ public final class TaskManagerView {
 			while (deque.peek() != null) {
 				TreeItem<String> node = deque.poll();
 				if (node != null) {
-					if (node.getChildren().isEmpty()) {
+					final ObservableList<TreeItem<String>> children = node.getChildren();
+					if (children.isEmpty()) {
 						// process leaves
-						disableCheckBoxIfChildrenExist(node);
+						setDisabled(node, false);
 					} else {
 						// process branches
 						node.setExpanded(true);
-						deque.addAll(node.getChildren());
+						setDisabled(node, true);
+						deque.addAll(children);
 					}
 				}
 			}
@@ -193,9 +203,7 @@ public final class TaskManagerView {
 			return;
 		}
 		treeItem.setExpanded(true);
-		for (TreeItem<String> child : treeItem.getChildren()) {
-			expandNodes(child);
-		}
+		expandNodes(treeItem.getParent());
 	}
 
 	public void save(Stage stage) {
@@ -206,16 +214,32 @@ public final class TaskManagerView {
 				oos.writeObject(toSaveObject(tree.getRoot()));
 			} catch (IOException e) {
 				e.printStackTrace();
+				Alert alert = new Alert(Alert.AlertType.ERROR);
+				alert.setHeaderText("Problem saving task.");
+				alert.setContentText(e.getMessage());
+				alert.showAndWait();
 			}
 		}
 	}
 
-	private static Task toSaveObject(TreeItem<String> treeItem) {
+	private Task toSaveObject(TreeItem<String> treeItem) {
 		List<Task> children = new ArrayList<>();
 		for (TreeItem<String> child : treeItem.getChildren()) {
 			children.add(toSaveObject(child));
 		}
-		return new Task(treeItem.getValue(), children);
+		return new Task(treeItem.getValue(), children, isChecked(treeItem));
+	}
+
+	private boolean isChecked(TreeItem<String> treeItem) {
+		return checkboxes.get(treeItem).isSelected();
+	}
+
+	private void setChecked(TreeItem<String> treeItem, boolean selected) {
+		checkboxes.get(treeItem).setSelected(selected);
+	}
+
+	private void setDisabled(TreeItem<String> treeItem, boolean disabled) {
+		checkboxes.get(treeItem).setDisable(disabled);
 	}
 
 	public void load(Stage stage) {
@@ -228,6 +252,10 @@ public final class TaskManagerView {
 				reportTreeChange();
 			} catch (IOException | ClassNotFoundException e) {
 				e.printStackTrace();
+				Alert alert = new Alert(Alert.AlertType.ERROR);
+				alert.setHeaderText("Problem loading task.");
+				alert.setContentText(e.getMessage());
+				alert.showAndWait();
 			}
 		}
 	}
@@ -236,6 +264,9 @@ public final class TaskManagerView {
 		TreeItem<String> treeItem = createTreeItem(parent, task.getValue());
 		for (Task child : task.getChildren()) {
 			treeItem.getChildren().add(fromSaveObject(child,treeItem));
+		}
+		if (task.isCompleted()) {
+			setChecked(treeItem, true);
 		}
 		return treeItem;
 	}
