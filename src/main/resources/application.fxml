@@ -7,7 +7,6 @@
 <?import javafx.scene.control.TreeView?>
 <?import javafx.scene.layout.AnchorPane?>
 
-
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1">
    <children>
       <SplitPane dividerPositions="0.5" layoutX="67.0" layoutY="85.0" prefHeight="400.0" prefWidth="600.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
@@ -21,6 +20,8 @@
                <children>
                   <Button fx:id="btnAddTask" layoutX="16.0" layoutY="27.0" mnemonicParsing="false" text="Add Task" />
                   <TextField fx:id="txtAddTask" layoutX="98.0" layoutY="27.0" prefHeight="26.0" prefWidth="183.0" />
+                  <Button fx:id="btnSave" layoutX="16.0" layoutY="62.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="65.0" text="Save" />
+                  <Button fx:id="btnLoad" layoutX="16.0" layoutY="97.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="65.0" text="Load" />
                </children>
             </AnchorPane>
          </items>
