@@ -1,11 +1,13 @@
 package com.crossman.manager;
 
 import javafx.application.Application;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -54,6 +56,38 @@ public class TaskManagerApp extends Application {
 
 		scene.setOnKeyPressed(ke -> {
 			processKeyControls(ke);
+		});
+
+		view.addListener(new TaskManagerView.Listener() {
+			@Override
+			public void checkboxClicked(ActionEvent actionEvent) {
+
+			}
+
+			@Override
+			public void checkboxKeyPressed(KeyEvent keyEvent) {
+				processKeyControls(keyEvent);
+			}
+
+			@Override
+			public void deleteButtonClicked(ActionEvent actionEvent) {
+
+			}
+
+			@Override
+			public void deleteButtonKeyPressed(KeyEvent keyEvent) {
+				processKeyControls(keyEvent);
+			}
+
+			@Override
+			public void radioKeyPressed(KeyEvent keyEvent) {
+				processKeyControls(keyEvent);
+			}
+
+			@Override
+			public void treeItemCreated(TreeItem<String> treeItem) {
+
+			}
 		});
 
 		view.initialize();

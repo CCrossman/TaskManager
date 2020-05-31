@@ -2,7 +2,9 @@ package com.crossman.manager;
 
 import com.crossman.task.Task;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -44,34 +46,50 @@ public final class TaskManagerView {
 		reportTreeChange();
 	}
 
+	public boolean addListener(Listener listener) {
+		return listeners.add(listener);
+	}
+
 	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label) {
 		final CheckBox checkBox = createCheckBox();
 		final RadioButton radioButton = createRadioButton();
 
-		final CheckBoxTreeItem<String> treeItem;
+		final TreeItem<String> treeItem;
 		if (parent == null) {
-			treeItem = new CheckBoxTreeItem<>(label, new HBox(radioButton, checkBox));
+			treeItem = new TreeItem<>(label, new HBox(radioButton, checkBox));
 		} else {
 			final Hyperlink hyperlink = createDeleteLink();
-			treeItem = new CheckBoxTreeItem<>(label, new HBox(radioButton, checkBox, hyperlink));
+			treeItem = new TreeItem<>(label, new HBox(radioButton, checkBox, hyperlink));
 			deletes.put(treeItem, hyperlink);
 		}
 
 		checkboxes.put(treeItem, checkBox);
 		radioButtons.put(treeItem, radioButton);
+
+		for (Listener listener : listeners) {
+			listener.treeItemCreated(treeItem);
+		}
+
 		return treeItem;
 	}
 
 	private Hyperlink createDeleteLink() {
 		final Hyperlink hyperlink = new Hyperlink("Delete");
 		hyperlink.setOnAction($ -> {
-			System.err.println("Delete button pressed.");
+			for (Listener listener : listeners) {
+				listener.deleteButtonClicked($);
+			}
 			final TreeItem<String> deletee = deletes.getKey(hyperlink);
 			final TreeItem<String> parent = deletee.getParent();
 			if (parent != null) {
 				parent.getChildren().remove(deletee);
 				reportNodeRemoved(deletee,parent);
 				reportNodeUpdated(parent);
+			}
+		});
+		hyperlink.setOnKeyPressed(ke -> {
+			for (Listener listener : listeners) {
+				listener.deleteButtonKeyPressed(ke);
 			}
 		});
 		return hyperlink;
@@ -81,8 +99,12 @@ public final class TaskManagerView {
 		final RadioButton radioButton = new RadioButton();
 		radioButton.setToggleGroup(toggleGroup);
 		radioButton.setOnAction($ -> {
-			System.err.println("Radio button chosen.");
 			reportRadioUpdate(radioButtons.getKey(radioButton));
+		});
+		radioButton.setOnKeyPressed(ke -> {
+			for (Listener listener : listeners) {
+				listener.radioKeyPressed(ke);
+			}
 		});
 		return radioButton;
 	}
@@ -90,8 +112,15 @@ public final class TaskManagerView {
 	private CheckBox createCheckBox() {
 		final CheckBox checkBox = new CheckBox();
 		checkBox.setOnAction($ -> {
-			System.err.println("Clicked! Now " + (checkBox.isSelected() ? "selected" : "unselected"));
+			for (Listener listener : listeners) {
+				listener.checkboxClicked($);
+			}
 			reportCompletionUpdate(checkboxes.getKey(checkBox));
+		});
+		checkBox.setOnKeyPressed(ke -> {
+			for (Listener listener : listeners) {
+				listener.checkboxKeyPressed(ke);
+			}
 		});
 		return checkBox;
 	}
@@ -207,7 +236,6 @@ public final class TaskManagerView {
 	}
 
 	public void save(Stage stage) {
-		System.err.println("Save");
 		File selectedFile = fileSaver.showSaveDialog(stage);
 		if (selectedFile != null) {
 			try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(selectedFile))) {
@@ -243,7 +271,6 @@ public final class TaskManagerView {
 	}
 
 	public void load(Stage stage) {
-		System.err.println("Load");
 		File selectedFile = fileLoader.showOpenDialog(stage);
 		if (selectedFile != null) {
 			try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(selectedFile))) {
@@ -324,6 +351,11 @@ public final class TaskManagerView {
 	}
 
 	public static interface Listener {
-
+		public void checkboxClicked(ActionEvent actionEvent);
+		public void checkboxKeyPressed(KeyEvent keyEvent);
+		public void deleteButtonClicked(ActionEvent actionEvent);
+		public void deleteButtonKeyPressed(KeyEvent keyEvent);
+		public void radioKeyPressed(KeyEvent keyEvent);
+		public void treeItemCreated(TreeItem<String> treeItem);
 	}
 }
