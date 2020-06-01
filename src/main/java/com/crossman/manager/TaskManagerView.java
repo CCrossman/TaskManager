@@ -3,15 +3,19 @@ package com.crossman.manager;
 import com.crossman.task.Task;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 
 import java.io.*;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.*;
 
@@ -56,8 +60,9 @@ public final class TaskManagerView {
 		return createTreeItem(parent,label,ZonedDateTime.now());
 	}
 
-	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime now) {
-		final Tooltip t = new Tooltip(now.toString());
+	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime whenCreated) {
+		final ZonedDateTime now = ZonedDateTime.now();
+		final Tooltip t = new Tooltip(whenCreated.toString());
 		final CheckBox checkBox = createCheckBox();
 		final RadioButton radioButton = createRadioButton();
 
@@ -67,22 +72,30 @@ public final class TaskManagerView {
 		} else {
 			final Hyperlink hyperlink = createDeleteLink();
 
-			treeItem = new TreeItem<>(label, new HBox(radioButton, checkBox, hyperlink));
+			final Circle ageCircle;
+			final Duration duration = Duration.between(now, whenCreated).abs();
+			if(duration.compareTo(Duration.ofHours(6)) < 0) {
+				ageCircle = new Circle(8, Color.GREEN);
+			} else if(duration.compareTo(Duration.ofDays(1)) < 0) {
+				ageCircle = new Circle(8, Color.GREENYELLOW);
+			} else if(duration.compareTo(Duration.ofDays(7)) < 0) {
+				ageCircle = new Circle(8, Color.YELLOW);
+			} else {
+				ageCircle = new Circle(8, Color.RED);
+			}
+			Tooltip.install(ageCircle, t);
 
-			Tooltip.install(treeItem.getGraphic(), t);
-			Tooltip.install(radioButton, t);
-			Tooltip.install(checkBox, t);
-			Tooltip.install(hyperlink, t);
+			treeItem = new TreeItem<>(label, new HBox(ageCircle, radioButton, checkBox, hyperlink));
 
 			deletes.put(treeItem, hyperlink);
 		}
 
 		checkboxes.put(treeItem, checkBox);
-		created.put(treeItem, now);
+		created.put(treeItem, whenCreated);
 		radioButtons.put(treeItem, radioButton);
 
 		for (Listener listener : listeners) {
-			listener.treeItemCreated(treeItem,now);
+			listener.treeItemCreated(treeItem,whenCreated);
 		}
 
 		return treeItem;
