@@ -13,6 +13,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 
+import java.time.ZonedDateTime;
+
 public class TaskManagerApp extends Application {
 	private TaskManagerView view;
 
@@ -85,7 +87,7 @@ public class TaskManagerApp extends Application {
 			}
 
 			@Override
-			public void treeItemCreated(TreeItem<String> treeItem) {
+			public void treeItemCreated(TreeItem<String> treeItem, ZonedDateTime now) {
 
 			}
 		});

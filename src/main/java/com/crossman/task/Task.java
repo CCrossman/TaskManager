@@ -1,6 +1,8 @@
 package com.crossman.task;
 
 import java.io.Serializable;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,20 +16,14 @@ import static com.crossman.util.Preconditions.checkNotNull;
 public final class Task implements Serializable {
 	private final String value;
 	private final List<Task> children;
+	private final ZonedDateTime created;
 	private boolean completed;
 
-	public Task(String value) {
-		this(value, Collections.emptyList());
-	}
-
-	public Task(String value, List<Task> children) {
-		this(value, children, false);
-	}
-
-	public Task(String value, List<Task> children, boolean completed) {
+	public Task(String value, List<Task> children, boolean completed, ZonedDateTime created) {
 		this.value = checkNotNull(value);
 		this.children = new ArrayList<>(children);
 		this.completed = completed;
+		this.created = checkNotNull(created);
 	}
 
 	public <T> T fold(T initial, BiFunction<T,String,T> folder) {
@@ -63,6 +59,10 @@ public final class Task implements Serializable {
 		children.forEach(t -> t.forEachPre(blk));
 	}
 
+	public ZonedDateTime getCreated() {
+		return created;
+	}
+
 	public String getValue() {
 		return value;
 	}
@@ -86,12 +86,13 @@ public final class Task implements Serializable {
 		Task task = (Task) o;
 		return getValue().equals(task.getValue()) &&
 				isCompleted() == task.isCompleted() &&
+				getCreated().equals(task.getCreated()) &&
 				getChildren().equals(task.getChildren());
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(getValue(), getChildren(), isCompleted());
+		return Objects.hash(getCreated(), getValue(), getChildren(), isCompleted());
 	}
 
 	public static enum Order {

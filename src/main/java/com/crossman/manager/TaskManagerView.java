@@ -12,6 +12,7 @@ import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 
 import java.io.*;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 import static com.crossman.util.Preconditions.checkNotNull;
@@ -27,6 +28,7 @@ public final class TaskManagerView {
 	private final BidiMap<TreeItem<String>,CheckBox> checkboxes = new DualHashBidiMap<>();
 	private final BidiMap<TreeItem<String>,RadioButton> radioButtons = new DualHashBidiMap<>();
 	private final BidiMap<TreeItem<String>,Hyperlink> deletes = new DualHashBidiMap<>();
+	private final Map<TreeItem<String>, ZonedDateTime> created = new HashMap<>();
 
 	private TreeItem<String> focus;
 
@@ -51,6 +53,11 @@ public final class TaskManagerView {
 	}
 
 	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label) {
+		return createTreeItem(parent,label,ZonedDateTime.now());
+	}
+
+	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime now) {
+		final Tooltip t = new Tooltip(now.toString());
 		final CheckBox checkBox = createCheckBox();
 		final RadioButton radioButton = createRadioButton();
 
@@ -59,15 +66,23 @@ public final class TaskManagerView {
 			treeItem = new TreeItem<>(label, new HBox(radioButton, checkBox));
 		} else {
 			final Hyperlink hyperlink = createDeleteLink();
+
 			treeItem = new TreeItem<>(label, new HBox(radioButton, checkBox, hyperlink));
+
+			Tooltip.install(treeItem.getGraphic(), t);
+			Tooltip.install(radioButton, t);
+			Tooltip.install(checkBox, t);
+			Tooltip.install(hyperlink, t);
+
 			deletes.put(treeItem, hyperlink);
 		}
 
 		checkboxes.put(treeItem, checkBox);
+		created.put(treeItem, now);
 		radioButtons.put(treeItem, radioButton);
 
 		for (Listener listener : listeners) {
-			listener.treeItemCreated(treeItem);
+			listener.treeItemCreated(treeItem,now);
 		}
 
 		return treeItem;
@@ -174,6 +189,7 @@ public final class TaskManagerView {
 			setRadioSelected(parent, true);
 		}
 		checkboxes.remove(treeItem);
+		created.remove(treeItem);
 		deletes.remove(treeItem);
 		radioButtons.remove(treeItem);
 	}
@@ -255,7 +271,7 @@ public final class TaskManagerView {
 		for (TreeItem<String> child : treeItem.getChildren()) {
 			children.add(toSaveObject(child));
 		}
-		return new Task(treeItem.getValue(), children, isChecked(treeItem));
+		return new Task(treeItem.getValue(), children, isChecked(treeItem), created.get(treeItem));
 	}
 
 	private boolean isChecked(TreeItem<String> treeItem) {
@@ -288,7 +304,7 @@ public final class TaskManagerView {
 	}
 
 	private TreeItem<String> fromSaveObject(Task task, TreeItem<String> parent) {
-		TreeItem<String> treeItem = createTreeItem(parent, task.getValue());
+		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), task.getCreated());
 		for (Task child : task.getChildren()) {
 			treeItem.getChildren().add(fromSaveObject(child,treeItem));
 		}
@@ -356,6 +372,6 @@ public final class TaskManagerView {
 		public void deleteButtonClicked(ActionEvent actionEvent);
 		public void deleteButtonKeyPressed(KeyEvent keyEvent);
 		public void radioKeyPressed(KeyEvent keyEvent);
-		public void treeItemCreated(TreeItem<String> treeItem);
+		public void treeItemCreated(TreeItem<String> treeItem, ZonedDateTime now);
 	}
 }
