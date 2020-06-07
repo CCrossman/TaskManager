@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package proto;
+
+option java_package = "com.crossman.task";
+option java_outer_classname = "TaskProtos";
+
+message Task {
+    string value = 1;
+    repeated Task children = 2;
+    int64 created = 3;
+    bool completed = 4;
+}

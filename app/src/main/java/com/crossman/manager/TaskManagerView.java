@@ -1,9 +1,9 @@
 package com.crossman.manager;
 
-import com.crossman.task.Task;
+import com.crossman.task.TaskProtos;
+import com.crossman.util.Preconditions;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
-import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -14,12 +14,15 @@ import javafx.stage.Stage;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
-
-import static com.crossman.util.Preconditions.checkNotNull;
 
 public final class TaskManagerView {
 	private final TreeView<String> tree;
@@ -267,8 +270,8 @@ public final class TaskManagerView {
 	public void save(Stage stage) {
 		File selectedFile = fileSaver.showSaveDialog(stage);
 		if (selectedFile != null) {
-			try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(selectedFile))) {
-				oos.writeObject(toSaveObject(tree.getRoot()));
+			try (FileOutputStream fos = new FileOutputStream(selectedFile)) {
+				toSaveObject(tree.getRoot()).writeTo(fos);
 			} catch (IOException e) {
 				e.printStackTrace();
 				Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -279,12 +282,17 @@ public final class TaskManagerView {
 		}
 	}
 
-	private Task toSaveObject(TreeItem<String> treeItem) {
-		List<Task> children = new ArrayList<>();
+	private TaskProtos.Task toSaveObject(TreeItem<String> treeItem) {
+		List<TaskProtos.Task> children = new ArrayList<>();
 		for (TreeItem<String> child : treeItem.getChildren()) {
 			children.add(toSaveObject(child));
 		}
-		return new Task(treeItem.getValue(), children, isChecked(treeItem), created.get(treeItem));
+		return TaskProtos.Task.newBuilder()
+				.addAllChildren(children)
+				.setValue(treeItem.getValue())
+				.setCompleted(isChecked(treeItem))
+				.setCreated(created.get(treeItem).toInstant().getEpochSecond())
+				.build();
 	}
 
 	private boolean isChecked(TreeItem<String> treeItem) {
@@ -302,11 +310,11 @@ public final class TaskManagerView {
 	public void load(Stage stage) {
 		File selectedFile = fileLoader.showOpenDialog(stage);
 		if (selectedFile != null) {
-			try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(selectedFile))) {
-				Task task = (Task)ois.readObject();
+			try (FileInputStream fis = new FileInputStream(selectedFile)) {
+				TaskProtos.Task task = TaskProtos.Task.parseFrom(fis);
 				tree.setRoot(fromSaveObject(task,null));
 				reportTreeChange();
-			} catch (IOException | ClassNotFoundException e) {
+			} catch (IOException e) {
 				e.printStackTrace();
 				Alert alert = new Alert(Alert.AlertType.ERROR);
 				alert.setHeaderText("Problem loading task.");
@@ -316,19 +324,19 @@ public final class TaskManagerView {
 		}
 	}
 
-	private TreeItem<String> fromSaveObject(Task task, TreeItem<String> parent) {
-		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), task.getCreated());
-		for (Task child : task.getChildren()) {
+	private TreeItem<String> fromSaveObject(TaskProtos.Task task, TreeItem<String> parent) {
+		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), ZonedDateTime.ofInstant(Instant.ofEpochSecond(task.getCreated()), ZoneId.systemDefault()));
+		for (TaskProtos.Task child : task.getChildrenList()) {
 			treeItem.getChildren().add(fromSaveObject(child,treeItem));
 		}
-		if (task.isCompleted()) {
+		if (task.getCompleted()) {
 			setChecked(treeItem, true);
 		}
 		return treeItem;
 	}
 
 	public void addLeafAtFocus(String text) {
-		checkNotNull(focus);
+		Preconditions.checkNotNull(focus);
 		final TreeItem<String> ti = createTreeItem(focus, text);
 		focus.getChildren().add(ti);
 		reportNodeAdded(ti);
