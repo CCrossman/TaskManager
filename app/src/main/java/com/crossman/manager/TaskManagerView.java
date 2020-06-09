@@ -35,6 +35,7 @@ public final class TaskManagerView {
 	private final BidiMap<TreeItem<String>,CheckBox> checkboxes = new DualHashBidiMap<>();
 	private final BidiMap<TreeItem<String>,RadioButton> radioButtons = new DualHashBidiMap<>();
 	private final BidiMap<TreeItem<String>,Hyperlink> deletes = new DualHashBidiMap<>();
+	private final Map<TreeItem<String>,Circle> circles = new HashMap<>();
 	private final Map<TreeItem<String>, ZonedDateTime> created = new HashMap<>();
 	private final Map<TreeItem<String>, ZonedDateTime> completed = new HashMap<>();
 
@@ -51,7 +52,7 @@ public final class TaskManagerView {
 	}
 
 	public void initialize() {
-		final TreeItem<String> treeItem = createTreeItem(null, "Tasks");
+		final TreeItem<String> treeItem = createTreeItem(null, "Tasks", ZonedDateTime.now(), null);
 		tree.setRoot(treeItem);
 		reportTreeChange();
 	}
@@ -60,12 +61,7 @@ public final class TaskManagerView {
 		return listeners.add(listener);
 	}
 
-	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label) {
-		return createTreeItem(parent,label,ZonedDateTime.now());
-	}
-
-	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime whenCreated) {
-		final ZonedDateTime now = ZonedDateTime.now();
+	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime whenCreated, ZonedDateTime whenCompleted) {
 		final Tooltip t = new Tooltip(whenCreated.toString());
 		final CheckBox checkBox = createCheckBox();
 		final RadioButton radioButton = createRadioButton();
@@ -77,26 +73,27 @@ public final class TaskManagerView {
 			final Hyperlink hyperlink = createDeleteLink();
 
 			final Circle ageCircle;
-			final Duration duration = Duration.between(now, whenCreated).abs();
-			if(duration.compareTo(Duration.ofHours(6)) < 0) {
-				ageCircle = new Circle(8, Color.GREEN);
-			} else if(duration.compareTo(Duration.ofDays(1)) < 0) {
-				ageCircle = new Circle(8, Color.GREENYELLOW);
-			} else if(duration.compareTo(Duration.ofDays(7)) < 0) {
-				ageCircle = new Circle(8, Color.YELLOW);
+			if (whenCompleted != null) {
+				ageCircle = new Circle(8, Color.BLACK);
 			} else {
-				ageCircle = new Circle(8, Color.RED);
+				ageCircle = new Circle(8, Color.WHITE);
+				fillByAge(ageCircle, whenCreated);
 			}
 			Tooltip.install(ageCircle, t);
 
 			treeItem = new TreeItem<>(label, new HBox(ageCircle, radioButton, checkBox, hyperlink));
 
+			circles.put(treeItem, ageCircle);
 			deletes.put(treeItem, hyperlink);
 		}
 
 		checkboxes.put(treeItem, checkBox);
 		created.put(treeItem, whenCreated);
 		radioButtons.put(treeItem, radioButton);
+
+		if (whenCompleted != null) {
+			setChecked(treeItem, true, whenCompleted);
+		}
 
 		for (Listener listener : listeners) {
 			listener.treeItemCreated(treeItem,whenCreated);
@@ -105,8 +102,22 @@ public final class TaskManagerView {
 		return treeItem;
 	}
 
+	private static void fillByAge(Circle circle, ZonedDateTime whenCreated) {
+		final ZonedDateTime now = ZonedDateTime.now();
+		final Duration duration = Duration.between(now, whenCreated).abs();
+		if (duration.compareTo(Duration.ofHours(6)) < 0) {
+			circle.setFill(Color.GREEN);
+		} else if (duration.compareTo(Duration.ofDays(1)) < 0) {
+			circle.setFill(Color.GREENYELLOW);
+		} else if (duration.compareTo(Duration.ofDays(7)) < 0) {
+			circle.setFill(Color.YELLOW);
+		} else {
+			circle.setFill(Color.RED);
+		}
+	}
+
 	private static ZonedDateTime toZDT(TaskProtos.Timestamp timestamp) {
-		if (timestamp == null) {
+		if (timestamp == null || timestamp.getSeconds() == 0) {
 			return null;
 		}
 		return ZonedDateTime.ofInstant(Instant.ofEpochSecond(timestamp.getSeconds()), ZoneId.systemDefault());
@@ -180,16 +191,36 @@ public final class TaskManagerView {
 			if (treeItem.getChildren().isEmpty()) {
 				checkBox.setSelected(false);
 			} else {
-				checkBox.setSelected(treeItem.getChildren().stream().allMatch(ti -> isChecked(ti)));
+				final boolean selected = treeItem.getChildren().stream().allMatch(ti -> isChecked(ti));
+				checkBox.setSelected(selected);
+				if (selected) {
+					blacken(treeItem);
+				} else {
+					fillByAge(treeItem);
+				}
 			}
 		} else {
 			if (checkBox.isSelected()) {
+				blacken(treeItem);
 				completed.put(treeItem, ZonedDateTime.now());
 			} else {
+				fillByAge(treeItem);
 				completed.remove(treeItem);
 			}
 		}
 		reportCompletionUpdate(treeItem.getParent());
+	}
+
+	private void fillByAge(TreeItem<String> treeItem) {
+		if (circles.containsKey(treeItem) && created.containsKey(treeItem)) {
+			fillByAge(circles.get(treeItem), created.get(treeItem));
+		}
+	}
+
+	private void blacken(TreeItem<String> treeItem) {
+		if (circles.containsKey(treeItem)) {
+			circles.get(treeItem).setFill(Color.BLACK);
+		}
 	}
 
 	private void reportFocusChange() {
@@ -355,19 +386,16 @@ public final class TaskManagerView {
 	}
 
 	private TreeItem<String> fromSaveObject(TaskProtos.Task task, TreeItem<String> parent) {
-		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), toZDT(task.getWhenCreated()));
+		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), toZDT(task.getWhenCreated()), toZDT(task.getWhenCompleted()));
 		for (TaskProtos.Task child : task.getChildrenList()) {
 			treeItem.getChildren().add(fromSaveObject(child,treeItem));
-		}
-		if (task.getWhenCompleted() != null && task.getWhenCompleted().getSeconds() != 0) {
-			setChecked(treeItem, true, toZDT(task.getWhenCompleted()));
 		}
 		return treeItem;
 	}
 
 	public void addLeafAtFocus(String text) {
 		Preconditions.checkNotNull(focus);
-		final TreeItem<String> ti = createTreeItem(focus, text);
+		final TreeItem<String> ti = createTreeItem(focus, text, ZonedDateTime.now(), null);
 		focus.getChildren().add(ti);
 		reportNodeAdded(ti);
 	}
