@@ -36,6 +36,7 @@ public final class TaskManagerView {
 	private final BidiMap<TreeItem<String>,RadioButton> radioButtons = new DualHashBidiMap<>();
 	private final BidiMap<TreeItem<String>,Hyperlink> deletes = new DualHashBidiMap<>();
 	private final Map<TreeItem<String>, ZonedDateTime> created = new HashMap<>();
+	private final Map<TreeItem<String>, ZonedDateTime> completed = new HashMap<>();
 
 	private TreeItem<String> focus;
 
@@ -104,6 +105,20 @@ public final class TaskManagerView {
 		return treeItem;
 	}
 
+	private static ZonedDateTime toZDT(TaskProtos.Timestamp timestamp) {
+		if (timestamp == null) {
+			return null;
+		}
+		return ZonedDateTime.ofInstant(Instant.ofEpochSecond(timestamp.getSeconds()), ZoneId.systemDefault());
+	}
+
+	private static TaskProtos.Timestamp fromZDT(ZonedDateTime zdt) {
+		if (zdt == null) {
+			return null;
+		}
+		return TaskProtos.Timestamp.newBuilder().setSeconds(zdt.toInstant().getEpochSecond()).build();
+	}
+
 	private Hyperlink createDeleteLink() {
 		final Hyperlink hyperlink = new Hyperlink("Delete");
 		hyperlink.setOnAction($ -> {
@@ -167,6 +182,12 @@ public final class TaskManagerView {
 			} else {
 				checkBox.setSelected(treeItem.getChildren().stream().allMatch(ti -> isChecked(ti)));
 			}
+		} else {
+			if (checkBox.isSelected()) {
+				completed.put(treeItem, ZonedDateTime.now());
+			} else {
+				completed.remove(treeItem);
+			}
 		}
 		reportCompletionUpdate(treeItem.getParent());
 	}
@@ -205,6 +226,7 @@ public final class TaskManagerView {
 			setRadioSelected(parent, true);
 		}
 		checkboxes.remove(treeItem);
+		completed.remove(treeItem);
 		created.remove(treeItem);
 		deletes.remove(treeItem);
 		radioButtons.remove(treeItem);
@@ -287,20 +309,28 @@ public final class TaskManagerView {
 		for (TreeItem<String> child : treeItem.getChildren()) {
 			children.add(toSaveObject(child));
 		}
-		return TaskProtos.Task.newBuilder()
+		final TaskProtos.Task.Builder builder = TaskProtos.Task.newBuilder()
 				.addAllChildren(children)
 				.setValue(treeItem.getValue())
-				.setCompleted(isChecked(treeItem))
-				.setCreated(created.get(treeItem).toInstant().getEpochSecond())
-				.build();
+				.setWhenCreated(fromZDT(created.get(treeItem)));
+
+		if (!isChecked(treeItem) || completed.get(treeItem) == null) {
+			return builder.build();
+		}
+		return builder.setWhenCompleted(fromZDT(completed.get(treeItem))).build();
 	}
 
 	private boolean isChecked(TreeItem<String> treeItem) {
 		return checkboxes.get(treeItem).isSelected();
 	}
 
-	private void setChecked(TreeItem<String> treeItem, boolean selected) {
+	private void setChecked(TreeItem<String> treeItem, boolean selected, ZonedDateTime when) {
 		checkboxes.get(treeItem).setSelected(selected);
+		if (selected) {
+			completed.put(treeItem, when == null ? ZonedDateTime.now() : when);
+		} else {
+			completed.remove(treeItem);
+		}
 	}
 
 	private void setDisabled(TreeItem<String> treeItem, boolean disabled) {
@@ -325,12 +355,12 @@ public final class TaskManagerView {
 	}
 
 	private TreeItem<String> fromSaveObject(TaskProtos.Task task, TreeItem<String> parent) {
-		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), ZonedDateTime.ofInstant(Instant.ofEpochSecond(task.getCreated()), ZoneId.systemDefault()));
+		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), toZDT(task.getWhenCreated()));
 		for (TaskProtos.Task child : task.getChildrenList()) {
 			treeItem.getChildren().add(fromSaveObject(child,treeItem));
 		}
-		if (task.getCompleted()) {
-			setChecked(treeItem, true);
+		if (task.getWhenCompleted() != null && task.getWhenCompleted().getSeconds() != 0) {
+			setChecked(treeItem, true, toZDT(task.getWhenCompleted()));
 		}
 		return treeItem;
 	}

@@ -5,9 +5,16 @@ package proto;
 option java_package = "com.crossman.task";
 option java_outer_classname = "TaskProtos";
 
+message Timestamp {
+    int64 seconds = 1;
+    int32 nanos = 2;
+}
+
 message Task {
     string value = 1;
     repeated Task children = 2;
-    int64 created = 3;
-    bool completed = 4;
+    reserved 3, 4;
+    reserved "created", "completed";
+    Timestamp whenCreated = 5;
+    Timestamp whenCompleted = 6;
 }
