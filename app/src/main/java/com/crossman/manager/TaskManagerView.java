@@ -1,9 +1,7 @@
 package com.crossman.manager;
 
 import com.crossman.task.TaskProtos;
-import com.crossman.util.Preconditions;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -23,6 +21,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
+
+import static com.crossman.util.Preconditions.checkNotNull;
 
 public final class TaskManagerView {
 	private final TreeView<String> tree;
@@ -95,10 +95,6 @@ public final class TaskManagerView {
 			setChecked(treeItem, true, whenCompleted);
 		}
 
-		for (Listener listener : listeners) {
-			listener.treeItemCreated(treeItem,whenCreated);
-		}
-
 		return treeItem;
 	}
 
@@ -132,10 +128,7 @@ public final class TaskManagerView {
 
 	private Hyperlink createDeleteLink() {
 		final Hyperlink hyperlink = new Hyperlink("Delete");
-		hyperlink.setOnAction($ -> {
-			for (Listener listener : listeners) {
-				listener.deleteButtonClicked($);
-			}
+		hyperlink.setOnAction(ae -> {
 			final TreeItem<String> deletee = deletes.getKey(hyperlink);
 			final TreeItem<String> parent = deletee.getParent();
 			if (parent != null) {
@@ -146,7 +139,7 @@ public final class TaskManagerView {
 		});
 		hyperlink.setOnKeyPressed(ke -> {
 			for (Listener listener : listeners) {
-				listener.deleteButtonKeyPressed(ke);
+				listener.keyPressed(ke);
 			}
 		});
 		return hyperlink;
@@ -160,7 +153,7 @@ public final class TaskManagerView {
 		});
 		radioButton.setOnKeyPressed(ke -> {
 			for (Listener listener : listeners) {
-				listener.radioKeyPressed(ke);
+				listener.keyPressed(ke);
 			}
 		});
 		return radioButton;
@@ -168,15 +161,12 @@ public final class TaskManagerView {
 
 	private CheckBox createCheckBox() {
 		final CheckBox checkBox = new CheckBox();
-		checkBox.setOnAction($ -> {
-			for (Listener listener : listeners) {
-				listener.checkboxClicked($);
-			}
+		checkBox.setOnAction(ae -> {
 			reportCompletionUpdate(checkboxes.getKey(checkBox));
 		});
 		checkBox.setOnKeyPressed(ke -> {
 			for (Listener listener : listeners) {
-				listener.checkboxKeyPressed(ke);
+				listener.keyPressed(ke);
 			}
 		});
 		return checkBox;
@@ -394,7 +384,7 @@ public final class TaskManagerView {
 	}
 
 	public void addLeafAtFocus(String text) {
-		Preconditions.checkNotNull(focus);
+		checkNotNull(focus);
 		final TreeItem<String> ti = createTreeItem(focus, text, ZonedDateTime.now(), null);
 		focus.getChildren().add(ti);
 		reportNodeAdded(ti);
@@ -446,11 +436,6 @@ public final class TaskManagerView {
 	}
 
 	public static interface Listener {
-		public void checkboxClicked(ActionEvent actionEvent);
-		public void checkboxKeyPressed(KeyEvent keyEvent);
-		public void deleteButtonClicked(ActionEvent actionEvent);
-		public void deleteButtonKeyPressed(KeyEvent keyEvent);
-		public void radioKeyPressed(KeyEvent keyEvent);
-		public void treeItemCreated(TreeItem<String> treeItem, ZonedDateTime now);
+		public void keyPressed(KeyEvent keyEvent);
 	}
 }
