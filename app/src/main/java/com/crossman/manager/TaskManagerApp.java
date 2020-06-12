@@ -4,12 +4,16 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TreeView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TaskManagerApp extends Application {
 	private TaskManagerView view;
@@ -29,6 +33,7 @@ public class TaskManagerApp extends Application {
 		Button btnAddTask = (Button)root.lookup("#btnAddTask");
 		Button btnSave = (Button)root.lookup("#btnSave");
 		Button btnLoad = (Button)root.lookup("#btnLoad");
+		Button btnReset = (Button)root.lookup("#btnReset");
 		TextField txtAddTask = (TextField)root.lookup("#txtAddTask");
 		TreeView<String> treeView = (TreeView<String>)root.lookup("#treeView");
 		this.view = new TaskManagerView(treeView);
@@ -49,7 +54,16 @@ public class TaskManagerApp extends Application {
 		});
 
 		btnLoad.setOnAction($ -> {
-			view.load(stage);
+			if (view.isDirty()) {
+				Alert alert = new Alert(Alert.AlertType.WARNING, "You should save your changes.");
+				alert.showAndWait();
+			} else {
+				view.load(stage);
+			}
+		});
+
+		btnReset.setOnAction($ -> {
+			view.reset();
 		});
 
 		scene.setOnKeyPressed(ke -> {
@@ -60,6 +74,16 @@ public class TaskManagerApp extends Application {
 			@Override
 			public void keyPressed(KeyEvent keyEvent) {
 				processKeyControls(keyEvent);
+			}
+
+			@Override
+			public void markClean() {
+				stage.setTitle("Task Manager");
+			}
+
+			@Override
+			public void markDirty() {
+				stage.setTitle("Task Manager [dirty]");
 			}
 		});
 

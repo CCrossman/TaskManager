@@ -22,6 +22,7 @@
                   <TextField fx:id="txtAddTask" layoutX="98.0" layoutY="27.0" prefHeight="26.0" prefWidth="183.0" />
                   <Button fx:id="btnSave" layoutX="16.0" layoutY="62.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="65.0" text="Save" />
                   <Button fx:id="btnLoad" layoutX="16.0" layoutY="97.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="65.0" text="Load" />
+                  <Button fx:id="btnReset" layoutX="16.0" layoutY="133.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="65.0" text="Reset" />
                </children>
             </AnchorPane>
          </items>

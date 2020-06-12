@@ -40,6 +40,8 @@ public final class TaskManagerView {
 	private final Map<TreeItem<String>, ZonedDateTime> completed = new HashMap<>();
 
 	private TreeItem<String> focus;
+	private boolean dirty;
+	private File lastLoad;
 
 	public TaskManagerView(TreeView<String> treeView) {
 		this.tree = treeView;
@@ -59,6 +61,10 @@ public final class TaskManagerView {
 
 	public boolean addListener(Listener listener) {
 		return listeners.add(listener);
+	}
+
+	public boolean isDirty() {
+		return dirty;
 	}
 
 	private TreeItem<String> createTreeItem(TreeItem<String> parent, String label, ZonedDateTime whenCreated, ZonedDateTime whenCompleted) {
@@ -190,6 +196,7 @@ public final class TaskManagerView {
 				}
 			}
 		} else {
+			markDirty();
 			if (checkBox.isSelected()) {
 				blacken(treeItem);
 				completed.put(treeItem, ZonedDateTime.now());
@@ -199,6 +206,20 @@ public final class TaskManagerView {
 			}
 		}
 		reportCompletionUpdate(treeItem.getParent());
+	}
+
+	private void markDirty() {
+		dirty = true;
+		for (Listener listener : listeners) {
+			listener.markDirty();
+		}
+	}
+
+	private void markClean() {
+		dirty = false;
+		for (Listener listener : listeners) {
+			listener.markClean();
+		}
 	}
 
 	private void fillByAge(TreeItem<String> treeItem) {
@@ -278,6 +299,7 @@ public final class TaskManagerView {
 
 	private void reportTreeChange() {
 		focus = tree.getRoot();
+		markClean();
 
 		if (focus != null) {
 			Deque<TreeItem<String>> deque = new ArrayDeque<>();
@@ -315,6 +337,7 @@ public final class TaskManagerView {
 		if (selectedFile != null) {
 			try (FileOutputStream fos = new FileOutputStream(selectedFile)) {
 				toSaveObject(tree.getRoot()).writeTo(fos);
+				markClean();
 			} catch (IOException e) {
 				e.printStackTrace();
 				Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -359,12 +382,16 @@ public final class TaskManagerView {
 	}
 
 	public void load(Stage stage) {
-		File selectedFile = fileLoader.showOpenDialog(stage);
+		loadNow(fileLoader.showOpenDialog(stage));
+	}
+
+	private void loadNow(File selectedFile) {
 		if (selectedFile != null) {
 			try (FileInputStream fis = new FileInputStream(selectedFile)) {
 				TaskProtos.Task task = TaskProtos.Task.parseFrom(fis);
 				tree.setRoot(fromSaveObject(task,null));
 				reportTreeChange();
+				lastLoad = selectedFile;
 			} catch (IOException e) {
 				e.printStackTrace();
 				Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -373,6 +400,15 @@ public final class TaskManagerView {
 				alert.showAndWait();
 			}
 		}
+	}
+
+	public void reset() {
+		if (lastLoad == null) {
+			initialize();
+		} else {
+			loadNow(lastLoad);
+		}
+		markClean();
 	}
 
 	private TreeItem<String> fromSaveObject(TaskProtos.Task task, TreeItem<String> parent) {
@@ -384,6 +420,7 @@ public final class TaskManagerView {
 	}
 
 	public void addLeafAtFocus(String text) {
+		markDirty();
 		checkNotNull(focus);
 		final TreeItem<String> ti = createTreeItem(focus, text, ZonedDateTime.now(), null);
 		focus.getChildren().add(ti);
@@ -437,5 +474,7 @@ public final class TaskManagerView {
 
 	public static interface Listener {
 		public void keyPressed(KeyEvent keyEvent);
+		public void markClean();
+		public void markDirty();
 	}
 }
