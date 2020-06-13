@@ -187,38 +187,45 @@ public final class TaskManagerView {
 			if (treeItem.getChildren().isEmpty()) {
 				checkBox.setSelected(false);
 			} else {
+				final boolean currentState = checkBox.isSelected();
 				final boolean selected = treeItem.getChildren().stream().allMatch(ti -> isChecked(ti));
-				checkBox.setSelected(selected);
-				if (selected) {
-					blacken(treeItem);
-				} else {
-					fillByAge(treeItem);
+				if (currentState != selected) {
+					checkBox.setSelected(selected);
+					updateCheckboxMetadata(treeItem, selected);
 				}
 			}
 		} else {
 			markDirty();
-			if (checkBox.isSelected()) {
-				blacken(treeItem);
-				completed.put(treeItem, ZonedDateTime.now());
-			} else {
-				fillByAge(treeItem);
-				completed.remove(treeItem);
-			}
+			updateCheckboxMetadata(treeItem, checkBox.isSelected());
 		}
 		reportCompletionUpdate(treeItem.getParent());
 	}
 
+	private void updateCheckboxMetadata(TreeItem<String> treeItem, boolean selected) {
+		if (selected) {
+			blacken(treeItem);
+			completed.put(treeItem, ZonedDateTime.now());
+		} else {
+			fillByAge(treeItem);
+			completed.remove(treeItem);
+		}
+	}
+
 	private void markDirty() {
-		dirty = true;
-		for (Listener listener : listeners) {
-			listener.markDirty();
+		if (!dirty) {
+			dirty = true;
+			for (Listener listener : listeners) {
+				listener.markDirty();
+			}
 		}
 	}
 
 	private void markClean() {
-		dirty = false;
-		for (Listener listener : listeners) {
-			listener.markClean();
+		if (dirty) {
+			dirty = false;
+			for (Listener listener : listeners) {
+				listener.markClean();
+			}
 		}
 	}
 
@@ -371,7 +378,7 @@ public final class TaskManagerView {
 	private void setChecked(TreeItem<String> treeItem, boolean selected, ZonedDateTime when) {
 		checkboxes.get(treeItem).setSelected(selected);
 		if (selected) {
-			completed.put(treeItem, when == null ? ZonedDateTime.now() : when);
+			completed.put(treeItem, checkNotNull(when));
 		} else {
 			completed.remove(treeItem);
 		}
@@ -411,6 +418,12 @@ public final class TaskManagerView {
 		markClean();
 	}
 
+	public void clear() {
+		lastLoad = null;
+		initialize();
+		markClean();
+	}
+
 	private TreeItem<String> fromSaveObject(TaskProtos.Task task, TreeItem<String> parent) {
 		TreeItem<String> treeItem = createTreeItem(parent, task.getValue(), toZDT(task.getWhenCreated()), toZDT(task.getWhenCompleted()));
 		for (TaskProtos.Task child : task.getChildrenList()) {
@@ -420,11 +433,11 @@ public final class TaskManagerView {
 	}
 
 	public void addLeafAtFocus(String text) {
-		markDirty();
 		checkNotNull(focus);
 		final TreeItem<String> ti = createTreeItem(focus, text, ZonedDateTime.now(), null);
 		focus.getChildren().add(ti);
 		reportNodeAdded(ti);
+		markDirty();
 	}
 
 	public void moveFocusRight() {

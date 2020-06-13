@@ -12,9 +12,6 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 public class TaskManagerApp extends Application {
 	private TaskManagerView view;
 
@@ -34,6 +31,7 @@ public class TaskManagerApp extends Application {
 		Button btnSave = (Button)root.lookup("#btnSave");
 		Button btnLoad = (Button)root.lookup("#btnLoad");
 		Button btnReset = (Button)root.lookup("#btnReset");
+		Button btnClear = (Button)root.lookup("#btnClear");
 		TextField txtAddTask = (TextField)root.lookup("#txtAddTask");
 		TreeView<String> treeView = (TreeView<String>)root.lookup("#treeView");
 		this.view = new TaskManagerView(treeView);
@@ -64,6 +62,10 @@ public class TaskManagerApp extends Application {
 
 		btnReset.setOnAction($ -> {
 			view.reset();
+		});
+
+		btnClear.setOnAction($ -> {
+			view.clear();
 		});
 
 		scene.setOnKeyPressed(ke -> {
