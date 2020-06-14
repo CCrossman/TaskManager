@@ -7,8 +7,11 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+
+import static com.crossman.util.Preconditions.checkNotNull;
 
 public class TaskManagerApp extends Application {
 	private TaskManagerView view;
@@ -21,14 +24,13 @@ public class TaskManagerApp extends Application {
 	public void start(Stage stage) throws Exception {
 		Parent root = FXMLLoader.load(getClass().getResource("/application.fxml"));
 		stage.setTitle("Task Manager");
-		final Scene scene = new Scene(root, 600, 550);
+		final Scene scene = new Scene(root, 305, 390);
 		stage.setScene(scene);
 		stage.show();
 
 		Button btnAddTask = (Button)root.lookup("#btnAddTask");
 
-		final VBox vBox = (VBox)root.lookup("#vbox");
-		final MenuBar menuBar = (MenuBar) vBox.getChildren().get(0);
+		final MenuBar menuBar = (MenuBar) root.getChildrenUnmodifiable().stream().filter(n -> n instanceof MenuBar).findFirst().get();
 
 		final MenuButton mFile = (MenuButton) menuBar.lookup("#mFile");
 		for (MenuItem mi : mFile.getItems()) {

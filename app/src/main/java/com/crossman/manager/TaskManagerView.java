@@ -279,6 +279,7 @@ public final class TaskManagerView {
 		created.remove(treeItem);
 		deletes.remove(treeItem);
 		radioButtons.remove(treeItem);
+		markDirty();
 	}
 
 	private void setRadioSelected(TreeItem<String> treeItem, boolean selected) {
