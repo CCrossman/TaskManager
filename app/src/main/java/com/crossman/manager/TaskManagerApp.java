@@ -4,12 +4,10 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TreeView;
+import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class TaskManagerApp extends Application {
@@ -28,11 +26,36 @@ public class TaskManagerApp extends Application {
 		stage.show();
 
 		Button btnAddTask = (Button)root.lookup("#btnAddTask");
-		Button btnSave = (Button)root.lookup("#btnSave");
-		Button btnLoad = (Button)root.lookup("#btnLoad");
-		Button btnReset = (Button)root.lookup("#btnReset");
-		Button btnClear = (Button)root.lookup("#btnClear");
+
+		final VBox vBox = (VBox)root.lookup("#vbox");
+		final MenuBar menuBar = (MenuBar) vBox.getChildren().get(0);
+
+		final MenuButton mFile = (MenuButton) menuBar.lookup("#mFile");
+		for (MenuItem mi : mFile.getItems()) {
+			switch (mi.getId()) {
+				case "miLoad" -> mi.setOnAction($ -> {
+					loadNow(stage);
+				});
+				case "miSave" -> mi.setOnAction($ -> {
+					view.save(stage);
+				});
+			}
+		}
+
+		final MenuButton mEdit = (MenuButton) menuBar.lookup("#mEdit");
+		for (MenuItem mi : mEdit.getItems()) {
+			switch (mi.getId()) {
+				case "miClear" -> mi.setOnAction($ -> {
+					view.clear();
+				});
+				case "miReset" -> mi.setOnAction($ -> {
+					view.reset();
+				});
+			}
+		}
+
 		TextField txtAddTask = (TextField)root.lookup("#txtAddTask");
+
 		TreeView<String> treeView = (TreeView<String>)root.lookup("#treeView");
 		this.view = new TaskManagerView(treeView);
 
@@ -45,27 +68,6 @@ public class TaskManagerApp extends Application {
 				processTextControls(txtAddTask);
 			}
 			processKeyControls(ke);
-		});
-
-		btnSave.setOnAction($ -> {
-			view.save(stage);
-		});
-
-		btnLoad.setOnAction($ -> {
-			if (view.isDirty()) {
-				Alert alert = new Alert(Alert.AlertType.WARNING, "You should save your changes.");
-				alert.showAndWait();
-			} else {
-				view.load(stage);
-			}
-		});
-
-		btnReset.setOnAction($ -> {
-			view.reset();
-		});
-
-		btnClear.setOnAction($ -> {
-			view.clear();
 		});
 
 		scene.setOnKeyPressed(ke -> {
@@ -90,6 +92,15 @@ public class TaskManagerApp extends Application {
 		});
 
 		view.initialize();
+	}
+
+	private void loadNow(Stage stage) {
+		if (view.isDirty()) {
+			Alert alert = new Alert(Alert.AlertType.WARNING, "You should save your changes.");
+			alert.showAndWait();
+		} else {
+			view.load(stage);
+		}
 	}
 
 	private void processTextControls(TextField txtAddTask) {
