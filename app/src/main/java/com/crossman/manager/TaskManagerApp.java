@@ -7,11 +7,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
-import static com.crossman.util.Preconditions.checkNotNull;
 
 public class TaskManagerApp extends Application {
 	private TaskManagerView view;

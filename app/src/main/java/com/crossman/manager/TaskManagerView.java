@@ -98,7 +98,8 @@ public final class TaskManagerView {
 		radioButtons.put(treeItem, radioButton);
 
 		if (whenCompleted != null) {
-			setChecked(treeItem, true, whenCompleted);
+			checkBox.setSelected(true);
+			completed.put(treeItem, whenCompleted);
 		}
 
 		return treeItem;
@@ -374,15 +375,6 @@ public final class TaskManagerView {
 
 	private boolean isChecked(TreeItem<String> treeItem) {
 		return checkboxes.get(treeItem).isSelected();
-	}
-
-	private void setChecked(TreeItem<String> treeItem, boolean selected, ZonedDateTime when) {
-		checkboxes.get(treeItem).setSelected(selected);
-		if (selected) {
-			completed.put(treeItem, checkNotNull(when));
-		} else {
-			completed.remove(treeItem);
-		}
 	}
 
 	private void setDisabled(TreeItem<String> treeItem, boolean disabled) {
